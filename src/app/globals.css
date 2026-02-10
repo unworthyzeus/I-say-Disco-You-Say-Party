@@ -1,0 +1,375 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap');
+@import "tailwindcss";
+
+/* ===================================================
+   Disco Elysium Bohemian Aesthetic
+   Painterly, moody, oil-on-canvas feel
+   =================================================== */
+
+:root {
+  --de-bg-deep: #1a1611;
+  --de-bg: #2a2119;
+  --de-bg-warm: #352a1f;
+  --de-surface: #3d3028;
+  --de-surface-light: #4d3e33;
+  --de-accent-ochre: #c49a4a;
+  --de-accent-amber: #d4a844;
+  --de-accent-gold: #e8c36a;
+  --de-accent-rust: #a65d3f;
+  --de-accent-teal: #4a7c7d;
+  --de-accent-sage: #6b7d5a;
+  --de-text: #d4c4a8;
+  --de-text-dim: #9a8b72;
+  --de-text-bright: #efe0c4;
+  --de-outline: #1a1208;
+  --de-red: #8b3a3a;
+  --de-shadow: rgba(15, 10, 5, 0.6);
+}
+
+body {
+  background-color: var(--de-bg-deep);
+  color: var(--de-text);
+  font-family: 'EB Garamond', 'Georgia', serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.04;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(180, 160, 120, 0.3) 2px,
+      rgba(180, 160, 120, 0.3) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(180, 160, 120, 0.2) 2px,
+      rgba(180, 160, 120, 0.2) 3px
+    );
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(15, 10, 5, 0.4) 100%
+  );
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  color: var(--de-text-bright);
+  text-shadow: 2px 2px 4px var(--de-shadow);
+}
+
+.disco-heading {
+  position: relative;
+  display: inline-block;
+}
+
+.disco-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--de-accent-ochre) 15%,
+    var(--de-accent-amber) 50%,
+    var(--de-accent-ochre) 85%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+.disco-card {
+  background: var(--de-surface);
+  border: 2px solid var(--de-surface-light);
+  border-radius: 2px;
+  position: relative;
+  box-shadow: 
+    inset 0 0 30px rgba(0, 0, 0, 0.3),
+    4px 4px 12px rgba(0, 0, 0, 0.5),
+    -1px -1px 3px rgba(200, 180, 140, 0.05);
+}
+
+.disco-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border: 1px solid var(--de-accent-ochre);
+  opacity: 0.15;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.disco-btn {
+  background: linear-gradient(135deg, var(--de-accent-ochre) 0%, var(--de-accent-amber) 50%, var(--de-accent-ochre) 100%);
+  color: var(--de-bg-deep);
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.disco-btn:hover {
+  background: linear-gradient(135deg, var(--de-accent-amber) 0%, var(--de-accent-gold) 50%, var(--de-accent-amber) 100%);
+  box-shadow: 2px 2px 12px rgba(196, 154, 74, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.disco-btn:active {
+  transform: translateY(1px);
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.disco-btn:disabled {
+  background: var(--de-surface-light);
+  color: var(--de-text-dim);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.disco-btn-secondary {
+  background: transparent;
+  color: var(--de-accent-ochre);
+  border: 1px solid var(--de-accent-ochre);
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 10px 28px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.disco-btn-secondary:hover {
+  background: rgba(196, 154, 74, 0.1);
+  color: var(--de-accent-gold);
+  border-color: var(--de-accent-gold);
+}
+
+.disco-dropzone {
+  border: 2px dashed var(--de-surface-light);
+  background: var(--de-bg-warm);
+  border-radius: 3px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.disco-dropzone::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(196, 154, 74, 0.02) 10px, rgba(196, 154, 74, 0.02) 20px);
+  pointer-events: none;
+}
+
+.disco-dropzone:hover,
+.disco-dropzone.dragover {
+  border-color: var(--de-accent-ochre);
+  background: rgba(196, 154, 74, 0.05);
+  box-shadow: inset 0 0 40px rgba(196, 154, 74, 0.05);
+}
+
+.disco-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--de-bg-warm);
+  border: 1px solid var(--de-surface-light);
+  border-radius: 1px;
+  outline: none;
+}
+
+.disco-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--de-accent-ochre);
+  border: 2px solid var(--de-accent-amber);
+  border-radius: 1px;
+  cursor: pointer;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+  transform: rotate(45deg);
+}
+
+.disco-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--de-accent-ochre);
+  border: 2px solid var(--de-accent-amber);
+  border-radius: 1px;
+  cursor: pointer;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.disco-progress {
+  width: 100%;
+  height: 8px;
+  background: var(--de-bg-warm);
+  border: 1px solid var(--de-surface-light);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.disco-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--de-accent-rust) 0%, var(--de-accent-ochre) 50%, var(--de-accent-amber) 100%);
+  transition: width 0.3s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.paint-splatter {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(20px);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--de-bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--de-surface-light);
+  border: 1px solid var(--de-surface);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--de-accent-ochre);
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-fade-in-delay {
+  animation: fadeInUp 0.8s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeInUp 0.8s ease-out 0.4s forwards;
+  opacity: 0;
+}
+
+.image-frame {
+  position: relative;
+  background: var(--de-bg-deep);
+  border: 3px solid var(--de-surface-light);
+  box-shadow: 
+    inset 0 0 20px rgba(0, 0, 0, 0.5),
+    6px 6px 20px rgba(0, 0, 0, 0.4),
+    -2px -2px 6px rgba(200, 180, 140, 0.03);
+}
+
+.image-frame::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border: 1px solid rgba(196, 154, 74, 0.1);
+  pointer-events: none;
+}
+
+/* Disco Elysium thought cabinet style tooltip */
+.thought-bubble {
+  background: linear-gradient(135deg, var(--de-bg-deep) 0%, var(--de-bg-warm) 100%);
+  border: 1px solid var(--de-accent-ochre);
+  border-left: 3px solid var(--de-accent-ochre);
+  padding: 12px 16px;
+  font-style: italic;
+  color: var(--de-text-dim);
+  position: relative;
+}
+
+.thought-bubble::before {
+  content: '"';
+  position: absolute;
+  top: -8px;
+  left: 8px;
+  font-size: 2rem;
+  color: var(--de-accent-ochre);
+  opacity: 0.4;
+  font-family: 'Playfair Display', serif;
+}
+
+/* Divider */
+.disco-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--de-surface-light), var(--de-accent-ochre), var(--de-surface-light), transparent);
+  opacity: 0.5;
+}
+
+/* Face detection indicator */
+.face-indicator {
+  position: absolute;
+  border: 2px solid var(--de-accent-teal);
+  border-radius: 2px;
+  opacity: 0.6;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(74, 124, 125, 0.3);
+}
+
