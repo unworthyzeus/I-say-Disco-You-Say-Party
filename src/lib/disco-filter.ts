@@ -82,7 +82,7 @@ export const DEFAULT_OPTIONS: FilterOptions = {
   edgeStrength: 0.6,
   brushSize: 4,
   warmth: 0.35,
-  saturation: 0.55,
+  saturation: 0.60,
   textureStrength: 0.3,
   faceRegions: []
 };
@@ -104,13 +104,12 @@ function oilPaintFilter(
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // In face regions: moderate reduction (70%) instead of harsh 50%
-      // This keeps enough painterly effect while avoiding noisy patches
+      // Moderate reduction in face regions — keep painterly feel
       let r = radius;
       for (const face of faceRegions) {
         if (x >= face.x && x <= face.x + face.width &&
           y >= face.y && y <= face.y + face.height) {
-          r = Math.max(2, Math.floor(radius * 0.7));
+          r = Math.max(2, Math.floor(radius * 0.6));
           break;
         }
       }
@@ -183,8 +182,8 @@ function posterize(
   const w = src.width;
   const h = src.height;
   const step = 255 / (levels - 1);
-  // More levels in face regions = smoother skin tones, fewer banding artifacts
-  const faceLevels = Math.min(levels + 4, 14);
+  // Slightly more levels in face regions to reduce hard banding on skin
+  const faceLevels = Math.min(levels + 2, 12);
   const faceStep = 255 / (faceLevels - 1);
 
   for (let y = 0; y < h; y++) {
@@ -364,10 +363,9 @@ function remapColors(
       const skinLike = inFace || isSkinTone(r, g, b, h, s, l);
       const hueCategory = classifyHue(h, s);
 
-      // Estimate how dominant faces are in the image.
-      // When face area is large (close-up), use gentler color shifts
-      // to avoid blotchy colored patches on uniform skin.
-      const skinDampen = faceAreaRatio > 0.25 ? 0.55 : 1.0;
+      // When face area is large (close-up), slightly reduce color shift
+      // to avoid blotchy patches, but keep the painterly character.
+      const skinDampen = faceAreaRatio > 0.25 ? 0.78 : 1.0;
 
       // =====================================================
       // COLOR GRADING RULES
@@ -376,32 +374,31 @@ function remapColors(
 
       if (skinLike) {
         // --- SKIN / FACE treatment ---
-        // Warm amber in lights, subtle cool in shadows
-        // skinDampen reduces the effect for close-up portraits
-        const sw = warmth * skinDampen; // Scaled warmth for skin
+        // Warm amber in lights, cool teal in shadows (signature painterly look)
+        const sw = warmth * skinDampen;
         if (l < 0.25) {
-          // Deep skin shadows -> subtle teal (gentler for close-ups)
-          h = lerpHue(h, HUE_TEAL, sw * 0.45);
-          s = s * 0.6 + 0.1;
+          // Deep skin shadows -> teal/blue-green
+          h = lerpHue(h, HUE_TEAL, sw * 0.55);
+          s = s * 0.55 + 0.12;
         } else if (l < 0.4) {
-          // Skin shadows -> transition from cool to warm
+          // Skin shadows -> teal-to-warm transition
           const t = (l - 0.25) / 0.15;
           const targetH = lerpHue(HUE_TEAL, HUE_SALMON, t);
-          h = lerpHue(h, targetH, sw * 0.4);
-          s = Math.min(1, s * (0.75 + t * 0.35));
+          h = lerpHue(h, targetH, sw * 0.48);
+          s = Math.min(1, s * (0.7 + t * 0.4));
         } else if (l < 0.65) {
-          // Skin mid-tones -> warm salmon/amber (subtle)
-          h = lerpHue(h, HUE_SALMON, sw * 0.35);
-          s = Math.min(1, s * (1.0 + 0.1 * skinDampen));
+          // Skin mid-tones -> warm salmon/amber
+          h = lerpHue(h, HUE_SALMON, sw * 0.42);
+          s = Math.min(1, s * 1.08);
         } else if (l < 0.82) {
           // Skin highlights -> golden amber
-          h = lerpHue(h, HUE_AMBER, sw * 0.3);
+          h = lerpHue(h, HUE_AMBER, sw * 0.38);
           s = Math.min(1, s * 0.9);
-          l = Math.min(1, l * 1.02);
+          l = Math.min(1, l * 1.03);
         } else {
           // Bright skin highlights -> warm white/pink
-          h = lerpHue(h, HUE_WARM_PINK, sw * 0.15);
-          s *= 0.35;
+          h = lerpHue(h, HUE_WARM_PINK, sw * 0.2);
+          s *= 0.3;
         }
 
       } else {
@@ -748,15 +745,14 @@ function bilateralFilter(
       const idx = (y * width + x) * 4;
       const cr = sd[idx], cg = sd[idx + 1], cb = sd[idx + 2];
 
-      // Use larger radius + tighter color sigma in face regions
-      // This smooths skin noise while preserving features like eyes/lips
+      // Slightly wider smoothing in face regions to reduce noise before painting
       let r = radius;
       let sc = sigmaColor;
       for (const face of faceRegions) {
         if (x >= face.x && x <= face.x + face.width &&
           y >= face.y && y <= face.y + face.height) {
-          r = radius + 2;    // Wider spatial smoothing on faces
-          sc = sigmaColor * 0.6; // Tighter color gate preserves edges
+          r = radius + 1;    // Slightly wider spatial smoothing on faces
+          sc = sigmaColor * 0.75; // Moderately tighter color gate
           break;
         }
       }
