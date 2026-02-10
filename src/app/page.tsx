@@ -491,10 +491,10 @@ export default function Home() {
             {/* Prominent download bar — visible on mobile */}
             {processed && (
               <div className="disco-download-bar mt-6">
-                <div className="disco-card p-4">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="disco-card p-4 flex items-center justify-center">
                     <button
-                      className="disco-btn-download flex-1 sm:flex-none"
+                      className="disco-btn-download w-full"
                       onClick={downloadResult}
                     >
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
@@ -502,8 +502,10 @@ export default function Home() {
                       </svg>
                       Download Painting
                     </button>
+                  </div>
+                  <div className="disco-card p-4 flex items-center justify-center">
                     <button
-                      className="disco-btn-download-alt flex-1 sm:flex-none"
+                      className="disco-btn-download-alt w-full"
                       onClick={downloadComparison}
                     >
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
@@ -514,9 +516,6 @@ export default function Home() {
                       Download Comparison
                     </button>
                   </div>
-                  <p className="text-xs mt-2 text-center sm:text-left" style={{ color: 'var(--de-text-dim)', opacity: 0.5 }}>
-                    Comparison includes watermark: i-say-disco-you-say-party.vercel.app
-                  </p>
                 </div>
               </div>
             )}
