@@ -104,12 +104,13 @@ function oilPaintFilter(
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // Use smaller radius in face regions for more detail
+      // In face regions: moderate reduction (70%) instead of harsh 50%
+      // This keeps enough painterly effect while avoiding noisy patches
       let r = radius;
       for (const face of faceRegions) {
         if (x >= face.x && x <= face.x + face.width &&
           y >= face.y && y <= face.y + face.height) {
-          r = Math.max(1, Math.floor(radius * 0.5));
+          r = Math.max(2, Math.floor(radius * 0.7));
           break;
         }
       }
@@ -172,15 +173,48 @@ function oilPaintFilter(
 // Step 2: Posterization (Cel-shading)
 // ============================================================
 
-function posterize(src: ImageData, levels: number): ImageData {
+function posterize(
+  src: ImageData,
+  levels: number,
+  faceRegions: FaceRegion[] = []
+): ImageData {
   const dst = new ImageData(new Uint8ClampedArray(src.data), src.width, src.height);
   const d = dst.data;
+  const w = src.width;
+  const h = src.height;
   const step = 255 / (levels - 1);
+  // More levels in face regions = smoother skin tones, fewer banding artifacts
+  const faceLevels = Math.min(levels + 4, 14);
+  const faceStep = 255 / (faceLevels - 1);
 
-  for (let i = 0; i < d.length; i += 4) {
-    d[i] = Math.round(Math.round(d[i] / step) * step);
-    d[i + 1] = Math.round(Math.round(d[i + 1] / step) * step);
-    d[i + 2] = Math.round(Math.round(d[i + 2] / step) * step);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+
+      // Check if in face region
+      let inFace = false;
+      for (const face of faceRegions) {
+        if (x >= face.x && x <= face.x + face.width &&
+          y >= face.y && y <= face.y + face.height) {
+          inFace = true;
+          break;
+        }
+      }
+
+      // Also detect skin-like pixels outside detected face boxes
+      if (!inFace) {
+        const r = d[idx], g = d[idx + 1], b = d[idx + 2];
+        // Quick skin heuristic: R > G > B, warm hue, moderate lightness
+        if (r > g && g > b && r - b > 30 && r > 80 && r < 240) {
+          inFace = true;
+        }
+      }
+
+      const s = inFace ? faceStep : step;
+      d[idx] = Math.round(Math.round(d[idx] / s) * s);
+      d[idx + 1] = Math.round(Math.round(d[idx + 1] / s) * s);
+      d[idx + 2] = Math.round(Math.round(d[idx + 2] / s) * s);
+    }
   }
   return dst;
 }
@@ -292,7 +326,14 @@ function remapColors(
   const w = src.width;
   const height = src.height;
 
-  // Disco Elysium palette reference hues (in HSL 0-1 range):
+  // Estimate face area ratio (how much of the image is face)
+  let faceArea = 0;
+  for (const face of faceRegions) {
+    faceArea += face.width * face.height;
+  }
+  const faceAreaRatio = faceArea / (w * height);
+
+  // Palette reference hues (in HSL 0-1 range):
   const HUE_AMBER = 0.07;        // Warm amber/ochre for skin highlights
   const HUE_SALMON = 0.03;       // Warm salmon for face mid-tones
   const HUE_TEAL = 0.49;         // Teal for shadows (signature DE look)
@@ -323,37 +364,44 @@ function remapColors(
       const skinLike = inFace || isSkinTone(r, g, b, h, s, l);
       const hueCategory = classifyHue(h, s);
 
+      // Estimate how dominant faces are in the image.
+      // When face area is large (close-up), use gentler color shifts
+      // to avoid blotchy colored patches on uniform skin.
+      const skinDampen = faceAreaRatio > 0.25 ? 0.55 : 1.0;
+
       // =====================================================
-      // DISCO ELYSIUM COLOR GRADING RULES
+      // COLOR GRADING RULES
       // Key principle: warm lights, cool shadows, diverse hues
       // =====================================================
 
       if (skinLike) {
         // --- SKIN / FACE treatment ---
-        // Disco Elysium faces: warm amber in lights, teal in shadows
+        // Warm amber in lights, subtle cool in shadows
+        // skinDampen reduces the effect for close-up portraits
+        const sw = warmth * skinDampen; // Scaled warmth for skin
         if (l < 0.25) {
-          // Deep skin shadows -> teal/blue-green (signature DE effect)
-          h = lerpHue(h, HUE_TEAL, warmth * 0.65);
-          s = s * 0.55 + 0.15; // Moderate saturation
+          // Deep skin shadows -> subtle teal (gentler for close-ups)
+          h = lerpHue(h, HUE_TEAL, sw * 0.45);
+          s = s * 0.6 + 0.1;
         } else if (l < 0.4) {
-          // Skin shadows -> transition from teal to warm
+          // Skin shadows -> transition from cool to warm
           const t = (l - 0.25) / 0.15;
           const targetH = lerpHue(HUE_TEAL, HUE_SALMON, t);
-          h = lerpHue(h, targetH, warmth * 0.55);
-          s = Math.min(1, s * (0.7 + t * 0.4));
+          h = lerpHue(h, targetH, sw * 0.4);
+          s = Math.min(1, s * (0.75 + t * 0.35));
         } else if (l < 0.65) {
-          // Skin mid-tones -> warm salmon/amber
-          h = lerpHue(h, HUE_SALMON, warmth * 0.5);
-          s = Math.min(1, s * 1.15); // Rich mid-tone saturation
+          // Skin mid-tones -> warm salmon/amber (subtle)
+          h = lerpHue(h, HUE_SALMON, sw * 0.35);
+          s = Math.min(1, s * (1.0 + 0.1 * skinDampen));
         } else if (l < 0.82) {
           // Skin highlights -> golden amber
-          h = lerpHue(h, HUE_AMBER, warmth * 0.45);
+          h = lerpHue(h, HUE_AMBER, sw * 0.3);
           s = Math.min(1, s * 0.9);
-          l = Math.min(1, l * 1.04); // Slight brightness boost
+          l = Math.min(1, l * 1.02);
         } else {
           // Bright skin highlights -> warm white/pink
-          h = lerpHue(h, HUE_WARM_PINK, warmth * 0.25);
-          s *= 0.3; // Mostly desaturated bright highlights
+          h = lerpHue(h, HUE_WARM_PINK, sw * 0.15);
+          s *= 0.35;
         }
 
       } else {
@@ -688,7 +736,8 @@ function bilateralFilter(
   height: number,
   radius: number,
   sigmaSpace: number,
-  sigmaColor: number
+  sigmaColor: number,
+  faceRegions: FaceRegion[] = []
 ): ImageData {
   const dst = new ImageData(width, height);
   const sd = src.data;
@@ -699,10 +748,23 @@ function bilateralFilter(
       const idx = (y * width + x) * 4;
       const cr = sd[idx], cg = sd[idx + 1], cb = sd[idx + 2];
 
+      // Use larger radius + tighter color sigma in face regions
+      // This smooths skin noise while preserving features like eyes/lips
+      let r = radius;
+      let sc = sigmaColor;
+      for (const face of faceRegions) {
+        if (x >= face.x && x <= face.x + face.width &&
+          y >= face.y && y <= face.y + face.height) {
+          r = radius + 2;    // Wider spatial smoothing on faces
+          sc = sigmaColor * 0.6; // Tighter color gate preserves edges
+          break;
+        }
+      }
+
       let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
 
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
           const nx = Math.min(Math.max(x + dx, 0), width - 1);
           const ny = Math.min(Math.max(y + dy, 0), height - 1);
           const ni = (ny * width + nx) * 4;
@@ -713,7 +775,7 @@ function bilateralFilter(
           const colorDist = (nr - cr) ** 2 + (ng - cg) ** 2 + (nb - cb) ** 2;
 
           const w = Math.exp(-spatialDist / (2 * sigmaSpace * sigmaSpace))
-            * Math.exp(-colorDist / (2 * sigmaColor * sigmaColor));
+            * Math.exp(-colorDist / (2 * sc * sc));
 
           sumR += nr * w;
           sumG += ng * w;
@@ -775,7 +837,7 @@ export async function applyDiscoElysiumFilter(
   // Pipeline step 1: Pre-smooth with bilateral filter (light touch)
   onProgress?.('Smoothing with bilateral filter...', 0.05);
   await yieldToMain();
-  imageData = bilateralFilter(imageData, w, h, 2, 8, 40);
+  imageData = bilateralFilter(imageData, w, h, 2, 8, 40, scaledFaces);
 
   // Pipeline step 2: Oil paint / Kuwahara filter
   onProgress?.('Applying oil paint effect...', 0.15);
@@ -790,7 +852,7 @@ export async function applyDiscoElysiumFilter(
   // Pipeline step 4: Posterize for cel-shading
   onProgress?.('Applying cel-shading...', 0.50);
   await yieldToMain();
-  imageData = posterize(imageData, options.posterizeLevels);
+  imageData = posterize(imageData, options.posterizeLevels, scaledFaces);
 
   // Pipeline step 5: Color remapping to Disco Elysium palette
   onProgress?.('Remapping to Disco Elysium palette...', 0.60);

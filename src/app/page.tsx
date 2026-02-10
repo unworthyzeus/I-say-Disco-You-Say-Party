@@ -181,7 +181,7 @@ export default function Home() {
     ctx.textAlign = "center";
     ctx.fillStyle = "#9a8b72";
     ctx.fillText("ORIGINAL", padding + src.width / 2, padding + 22);
-    ctx.fillText("DISCO ELYSIUM", padding * 2 + src.width + dst.width / 2, padding + 22);
+    ctx.fillText("PAINTED", padding * 2 + src.width + dst.width / 2, padding + 22);
 
     // Images
     const imgY = padding + labelH;
