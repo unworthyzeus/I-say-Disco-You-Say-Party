@@ -236,6 +236,51 @@ function sobelEdges(src: ImageData, width: number, height: number): Float32Array
 // Step 4: Color Palette Remapping (Disco Elysium tones)
 // ============================================================
 
+// Hue categories for Disco Elysium color treatment
+const enum HueCategory {
+  SKIN_WARM,    // Skin tones, warm oranges/reds (hue 0-0.11 or 0.93-1.0)
+  YELLOW_GOLD,  // Yellows, golds (0.11-0.17)
+  GREEN,        // Greens (0.17-0.42)
+  TEAL_CYAN,    // Teal/cyan (0.42-0.53)
+  BLUE,         // Blues (0.53-0.7)
+  PURPLE,       // Purples (0.7-0.83)
+  MAGENTA_PINK, // Magentas/pinks (0.83-0.93)
+  NEUTRAL,      // Very desaturated, no clear hue
+}
+
+function classifyHue(h: number, s: number): HueCategory {
+  if (s < 0.08) return HueCategory.NEUTRAL;
+  if (h < 0.11 || h >= 0.93) return HueCategory.SKIN_WARM;
+  if (h < 0.17) return HueCategory.YELLOW_GOLD;
+  if (h < 0.42) return HueCategory.GREEN;
+  if (h < 0.53) return HueCategory.TEAL_CYAN;
+  if (h < 0.70) return HueCategory.BLUE;
+  if (h < 0.83) return HueCategory.PURPLE;
+  return HueCategory.MAGENTA_PINK;
+}
+
+function isSkinTone(r: number, g: number, b: number, h: number, s: number, l: number): boolean {
+  // Detect skin-like colors by multiple criteria
+  if (l < 0.15 || l > 0.9) return false;
+  if (s < 0.1) return false;
+  // Skin hues: warm orange/red range
+  const inSkinHue = (h < 0.11 || h > 0.93);
+  if (!inSkinHue) return false;
+  // RGB ratios typical of skin
+  if (r < g || r < b) return false;
+  if (r - g < 10) return false;
+  return true;
+}
+
+// Lerp a hue value (handles wrapping around 0/1)
+function lerpHue(from: number, to: number, t: number): number {
+  // Find shortest path around the hue circle
+  let diff = to - from;
+  if (diff > 0.5) diff -= 1;
+  if (diff < -0.5) diff += 1;
+  return ((from + diff * t) % 1 + 1) % 1;
+}
+
 function remapColors(
   src: ImageData,
   warmth: number,
@@ -245,13 +290,24 @@ function remapColors(
   const dst = new ImageData(new Uint8ClampedArray(src.data), src.width, src.height);
   const d = dst.data;
   const w = src.width;
+  const height = src.height;
 
-  for (let y = 0; y < src.height; y++) {
+  // Disco Elysium palette reference hues (in HSL 0-1 range):
+  const HUE_AMBER = 0.07;        // Warm amber/ochre for skin highlights
+  const HUE_SALMON = 0.03;       // Warm salmon for face mid-tones
+  const HUE_TEAL = 0.49;         // Teal for shadows (signature DE look)
+  const HUE_COOL_BLUE = 0.58;    // Cool blue for deep shadows
+  const HUE_SAGE = 0.28;         // Sage green for muted greens
+  const HUE_OLIVE = 0.22;        // Olive for dark greens
+  const HUE_DUSTY_PURPLE = 0.76; // Dusty purple for accents
+  const HUE_GOLDEN = 0.12;       // Golden for warm highlights
+  const HUE_WARM_PINK = 0.97;    // Warm pink for bright accents
+
+  for (let y = 0; y < height; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      let r = d[idx], g = d[idx + 1], b = d[idx + 2];
+      const r = d[idx], g = d[idx + 1], b = d[idx + 2];
 
-      // Convert to HSL
       let [h, s, l] = rgbToHsl(r, g, b);
 
       // Check if in face region
@@ -264,36 +320,125 @@ function remapColors(
         }
       }
 
-      // Disco Elysium color grading:
-      // - Overall desaturation with warm shift
-      // - Faces get warmer, slightly more saturated treatment
-      // - Shift blues toward teal, reds toward ochre/sienna
+      const skinLike = inFace || isSkinTone(r, g, b, h, s, l);
+      const hueCategory = classifyHue(h, s);
 
-      // Desaturate
-      s *= saturationMod;
+      // =====================================================
+      // DISCO ELYSIUM COLOR GRADING RULES
+      // Key principle: warm lights, cool shadows, diverse hues
+      // =====================================================
 
-      // Warm shift: push hue toward amber/ochre (h ~0.08-0.12)
-      if (inFace) {
-        // Warmer treatment for faces - more orange/amber
-        h = h + (0.07 - h) * warmth * 0.4;
-        s = Math.min(1, s * 1.15); // Slightly more saturated faces
-        // Slight warm luminance boost
-        l = Math.min(1, l * 1.05);
+      if (skinLike) {
+        // --- SKIN / FACE treatment ---
+        // Disco Elysium faces: warm amber in lights, teal in shadows
+        if (l < 0.25) {
+          // Deep skin shadows -> teal/blue-green (signature DE effect)
+          h = lerpHue(h, HUE_TEAL, warmth * 0.65);
+          s = s * 0.55 + 0.15; // Moderate saturation
+        } else if (l < 0.4) {
+          // Skin shadows -> transition from teal to warm
+          const t = (l - 0.25) / 0.15;
+          const targetH = lerpHue(HUE_TEAL, HUE_SALMON, t);
+          h = lerpHue(h, targetH, warmth * 0.55);
+          s = Math.min(1, s * (0.7 + t * 0.4));
+        } else if (l < 0.65) {
+          // Skin mid-tones -> warm salmon/amber
+          h = lerpHue(h, HUE_SALMON, warmth * 0.5);
+          s = Math.min(1, s * 1.15); // Rich mid-tone saturation
+        } else if (l < 0.82) {
+          // Skin highlights -> golden amber
+          h = lerpHue(h, HUE_AMBER, warmth * 0.45);
+          s = Math.min(1, s * 0.9);
+          l = Math.min(1, l * 1.04); // Slight brightness boost
+        } else {
+          // Bright skin highlights -> warm white/pink
+          h = lerpHue(h, HUE_WARM_PINK, warmth * 0.25);
+          s *= 0.3; // Mostly desaturated bright highlights
+        }
+
       } else {
-        // General warm shift
-        h = h + (0.09 - h) * warmth * 0.2;
+        // --- NON-SKIN treatment ---
+        // Preserve original hue diversity but apply DE color grading
+
+        // LUMINANCE-BASED TEMPERATURE (warm lights, cool shadows)
+        if (l < 0.15) {
+          // Very deep shadows -> dark teal/blue-green
+          h = lerpHue(h, HUE_COOL_BLUE, warmth * 0.5);
+          s = Math.min(1, s * 0.4 + 0.05);
+        } else if (l < 0.3) {
+          // Shadows -> cool teal shift
+          h = lerpHue(h, HUE_TEAL, warmth * 0.35);
+          s *= 0.65;
+        } else if (l < 0.65) {
+          // Mid-tones -> PRESERVE HUE, apply per-category treatment
+          switch (hueCategory) {
+            case HueCategory.SKIN_WARM:
+              // Warm reds/oranges -> push toward ochre/burnt sienna
+              h = lerpHue(h, HUE_AMBER, warmth * 0.3);
+              s = Math.min(1, s * 1.1 * saturationMod + 0.05);
+              break;
+            case HueCategory.YELLOW_GOLD:
+              // Yellows -> enhance into rich gold
+              h = lerpHue(h, HUE_GOLDEN, warmth * 0.2);
+              s = Math.min(1, s * 1.2 * saturationMod);
+              break;
+            case HueCategory.GREEN:
+              // Greens -> mute into sage/olive (DE's muted environments)
+              h = lerpHue(h, HUE_SAGE, warmth * 0.25);
+              s = Math.min(1, s * 0.85 * saturationMod);
+              break;
+            case HueCategory.TEAL_CYAN:
+              // Teals -> keep and enhance (DE loves teal)
+              s = Math.min(1, s * 1.15 * saturationMod);
+              break;
+            case HueCategory.BLUE:
+              // Blues -> preserve but slight teal shift (DE's blue-green palette)
+              h = lerpHue(h, HUE_TEAL, warmth * 0.15);
+              s = Math.min(1, s * 1.1 * saturationMod);
+              break;
+            case HueCategory.PURPLE:
+              // Purples -> push toward dusty purple (DE accent color)
+              h = lerpHue(h, HUE_DUSTY_PURPLE, warmth * 0.2);
+              s = Math.min(1, s * 1.05 * saturationMod);
+              break;
+            case HueCategory.MAGENTA_PINK:
+              // Pinks -> keep the warmth, slight desaturation
+              s = Math.min(1, s * 0.9 * saturationMod);
+              break;
+            case HueCategory.NEUTRAL:
+              // Neutral mid-tones -> slight warm tint
+              h = lerpHue(h, HUE_AMBER, warmth * 0.15);
+              s = Math.min(1, s + 0.05);
+              break;
+          }
+        } else if (l < 0.82) {
+          // Highlights -> warm golden shift
+          switch (hueCategory) {
+            case HueCategory.BLUE:
+            case HueCategory.TEAL_CYAN:
+              // Cool highlights stay cool but soften
+              s *= 0.7 * saturationMod;
+              break;
+            case HueCategory.GREEN:
+              // Green highlights -> warm sage
+              h = lerpHue(h, HUE_GOLDEN, warmth * 0.2);
+              s *= 0.75 * saturationMod;
+              break;
+            default:
+              // Warm highlights -> golden
+              h = lerpHue(h, HUE_GOLDEN, warmth * 0.35);
+              s = Math.min(1, s * 0.8 * saturationMod);
+              break;
+          }
+        } else {
+          // Very bright -> warm white with slight color
+          h = lerpHue(h, HUE_GOLDEN, warmth * 0.2);
+          s *= 0.25;
+        }
       }
 
-      // Add slight teal to shadows (Disco Elysium shadow tones)
-      if (l < 0.3) {
-        h = h + (0.5 - h) * 0.1; // Slight teal in shadows
-        s = Math.min(1, s * 0.8);
-      }
-
-      // Boost warm highlights
-      if (l > 0.7) {
-        h = h + (0.1 - h) * warmth * 0.3; // Golden highlights
-      }
+      // Global subtle saturation modulation
+      s *= (saturationMod * 0.4 + 0.6); // Scale saturationMod to avoid total desaturation
 
       // Clamp
       h = ((h % 1) + 1) % 1;
@@ -304,6 +449,60 @@ function remapColors(
       d[idx] = nr;
       d[idx + 1] = ng;
       d[idx + 2] = nb;
+    }
+  }
+
+  return dst;
+}
+
+// ============================================================
+// Step 4b: Color Bleeding / Cross-Region Color Influence
+// ============================================================
+
+function colorBleeding(
+  src: ImageData,
+  width: number,
+  height: number,
+  bleedRadius: number
+): ImageData {
+  const dst = new ImageData(new Uint8ClampedArray(src.data), width, height);
+  const sd = src.data;
+  const dd = dst.data;
+
+  // Light color bleeding - average nearby pixels with weight toward different hues
+  // This creates the painterly "color spill" effect between regions
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const cr = sd[idx], cg = sd[idx + 1], cb = sd[idx + 2];
+
+      let sumR = cr * 4, sumG = cg * 4, sumB = cb * 4;
+      let totalW = 4;
+
+      // Sample sparse neighbors
+      for (let dy = -bleedRadius; dy <= bleedRadius; dy += bleedRadius) {
+        for (let dx = -bleedRadius; dx <= bleedRadius; dx += bleedRadius) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = Math.min(Math.max(x + dx, 0), width - 1);
+          const ny = Math.min(Math.max(y + dy, 0), height - 1);
+          const ni = (ny * width + nx) * 4;
+          const nr = sd[ni], ng = sd[ni + 1], nb = sd[ni + 2];
+
+          // Weight by color difference (bleed more where colors differ)
+          const colorDiff = Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb);
+          const w = colorDiff > 30 ? 0.3 : 0.1; // Stronger bleed at color boundaries
+
+          sumR += nr * w;
+          sumG += ng * w;
+          sumB += nb * w;
+          totalW += w;
+        }
+      }
+
+      dd[idx] = sumR / totalW;
+      dd[idx + 1] = sumG / totalW;
+      dd[idx + 2] = sumB / totalW;
+      dd[idx + 3] = sd[idx + 3];
     }
   }
 
@@ -324,17 +523,34 @@ function applyEdges(
   const dst = new ImageData(new Uint8ClampedArray(src.data), width, height);
   const d = dst.data;
 
-  // Disco Elysium uses dark sepia/brown outlines, not pure black
-  const outlineR = 35, outlineG = 25, outlineB = 20;
-
+  // Disco Elysium uses dark colored outlines that vary:
+  // - warm areas get dark brown/sienna outlines
+  // - cool areas get dark teal outlines
   for (let i = 0; i < edges.length; i++) {
     const edgeVal = edges[i];
-    if (edgeVal > 0.15) { // Threshold
+    if (edgeVal > 0.15) {
       const idx = i * 4;
       const alpha = Math.min(1, (edgeVal - 0.15) * 2.5) * strength;
-      d[idx] = d[idx] * (1 - alpha) + outlineR * alpha;
-      d[idx + 1] = d[idx + 1] * (1 - alpha) + outlineG * alpha;
-      d[idx + 2] = d[idx + 2] * (1 - alpha) + outlineB * alpha;
+
+      // Determine outline color based on underlying pixel warmth
+      const pr = d[idx], pg = d[idx + 1], pb = d[idx + 2];
+      const warmness = (pr - pb) / 255; // positive = warm, negative = cool
+
+      let outR: number, outG: number, outB: number;
+      if (warmness > 0.1) {
+        // Warm area -> dark brown/sienna outlines
+        outR = 45; outG = 28; outB = 18;
+      } else if (warmness < -0.05) {
+        // Cool area -> dark teal outlines
+        outR = 18; outG = 35; outB = 38;
+      } else {
+        // Neutral -> dark sepia
+        outR = 35; outG = 30; outB = 25;
+      }
+
+      d[idx] = d[idx] * (1 - alpha) + outR * alpha;
+      d[idx + 1] = d[idx + 1] * (1 - alpha) + outG * alpha;
+      d[idx + 2] = d[idx + 2] * (1 - alpha) + outB * alpha;
     }
   }
 
@@ -556,10 +772,10 @@ export async function applyDiscoElysiumFilter(
 
   let imageData = ctx.getImageData(0, 0, w, h);
 
-  // Pipeline step 1: Pre-smooth with bilateral filter
+  // Pipeline step 1: Pre-smooth with bilateral filter (light touch)
   onProgress?.('Smoothing with bilateral filter...', 0.05);
   await yieldToMain();
-  imageData = bilateralFilter(imageData, w, h, 3, 10, 30);
+  imageData = bilateralFilter(imageData, w, h, 2, 8, 40);
 
   // Pipeline step 2: Oil paint / Kuwahara filter
   onProgress?.('Applying oil paint effect...', 0.15);

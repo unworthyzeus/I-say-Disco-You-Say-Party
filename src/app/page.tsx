@@ -28,7 +28,11 @@ export default function Home() {
   const [dragover, setDragover] = useState(false);
   const [faceCount, setFaceCount] = useState(0);
   const [modelsReady, setModelsReady] = useState(false);
-  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  const [sourceLoaded, setSourceLoaded] = useState(false);
+  const [quote, setQuote] = useState(QUOTES[0]);
+  useEffect(() => {
+    setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  }, []);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [options, setOptions] = useState<FilterOptions>({ ...DEFAULT_OPTIONS });
@@ -51,8 +55,10 @@ export default function Home() {
     reader.onload = (e) => {
       setSourceImage(e.target?.result as string);
       setProcessed(false);
+      setSourceLoaded(false);
       setProgress(0);
       setProgressText("");
+      setShowAdvanced(true);
     };
     reader.readAsDataURL(file);
   }, []);
@@ -150,6 +156,59 @@ export default function Home() {
     link.click();
   }, []);
 
+  const downloadComparison = useCallback(() => {
+    if (!canvasRef.current || !sourceCanvasRef.current) return;
+    const src = sourceCanvasRef.current;
+    const dst = canvasRef.current;
+
+    const padding = 20;
+    const labelH = 36;
+    const watermarkH = 40;
+    const totalW = src.width + dst.width + padding * 3;
+    const totalH = Math.max(src.height, dst.height) + padding * 2 + labelH + watermarkH;
+
+    const comp = document.createElement("canvas");
+    comp.width = totalW;
+    comp.height = totalH;
+    const ctx = comp.getContext("2d")!;
+
+    // Background
+    ctx.fillStyle = "#1a1611";
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    // Labels
+    ctx.font = "bold 16px 'Playfair Display', Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#9a8b72";
+    ctx.fillText("ORIGINAL", padding + src.width / 2, padding + 22);
+    ctx.fillText("DISCO ELYSIUM", padding * 2 + src.width + dst.width / 2, padding + 22);
+
+    // Images
+    const imgY = padding + labelH;
+    ctx.drawImage(src, padding, imgY);
+    ctx.drawImage(dst, padding * 2 + src.width, imgY);
+
+    // Frames around images
+    ctx.strokeStyle = "#4d3e33";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(padding, imgY, src.width, src.height);
+    ctx.strokeRect(padding * 2 + src.width, imgY, dst.width, dst.height);
+
+    // Watermark bar
+    const wmY = totalH - watermarkH;
+    ctx.fillStyle = "#2a2119";
+    ctx.fillRect(0, wmY, totalW, watermarkH);
+    ctx.font = "italic 14px 'EB Garamond', Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#c49a4a";
+    ctx.fillText("i-say-disco-you-say-party.vercel.app", totalW / 2, wmY + 26);
+
+    const link = document.createElement("a");
+    link.download = "disco-comparison.png";
+    link.href = comp.toDataURL("image/png");
+    link.click();
+  }, []);
+
   const updateOption = (key: keyof FilterOptions, value: number) => {
     setOptions((prev) => ({ ...prev, [key]: value }));
   };
@@ -244,7 +303,7 @@ export default function Home() {
             {/* Controls bar */}
             <div className="disco-card p-5 mb-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     className="disco-btn text-sm"
                     onClick={processImage}
@@ -252,15 +311,6 @@ export default function Home() {
                   >
                     {processing ? "Painting..." : processed ? "Re-paint" : "Paint It"}
                   </button>
-                  
-                  {processed && (
-                    <button
-                      className="disco-btn-secondary text-sm"
-                      onClick={downloadResult}
-                    >
-                      Download
-                    </button>
-                  )}
 
                   <button
                     className="disco-btn-secondary text-sm"
@@ -377,31 +427,32 @@ export default function Home() {
                   <canvas
                     ref={sourceCanvasRef}
                     className="w-full h-auto block"
+                    style={{ display: sourceLoaded ? 'block' : 'none' }}
                   />
-                  {/* Show source image before processing */}
-                  {!processed && !processing && (
-                    <img
-                      src={sourceImage}
-                      alt="Original"
-                      className="w-full h-auto block"
-                      onLoad={(e) => {
-                        const img = e.currentTarget;
-                        if (sourceCanvasRef.current) {
-                          const ctx = sourceCanvasRef.current.getContext("2d")!;
-                          const maxDim = 1200;
-                          let w = img.naturalWidth, h = img.naturalHeight;
-                          if (w > maxDim || h > maxDim) {
-                            const scale = maxDim / Math.max(w, h);
-                            w = Math.round(w * scale);
-                            h = Math.round(h * scale);
-                          }
-                          sourceCanvasRef.current.width = w;
-                          sourceCanvasRef.current.height = h;
-                          ctx.drawImage(img, 0, 0, w, h);
+                  {/* Hidden img to load into the canvas, then swap */}
+                  <img
+                    src={sourceImage}
+                    alt="Original"
+                    className="w-full h-auto block"
+                    style={{ display: sourceLoaded ? 'none' : 'block' }}
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      if (sourceCanvasRef.current) {
+                        const ctx = sourceCanvasRef.current.getContext("2d")!;
+                        const maxDim = 1200;
+                        let w = img.naturalWidth, h = img.naturalHeight;
+                        if (w > maxDim || h > maxDim) {
+                          const scale = maxDim / Math.max(w, h);
+                          w = Math.round(w * scale);
+                          h = Math.round(h * scale);
                         }
-                      }}
-                    />
-                  )}
+                        sourceCanvasRef.current.width = w;
+                        sourceCanvasRef.current.height = h;
+                        ctx.drawImage(img, 0, 0, w, h);
+                        setSourceLoaded(true);
+                      }
+                    }}
+                  />
                 </div>
               </div>
 
@@ -436,6 +487,39 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Prominent download bar — visible on mobile */}
+            {processed && (
+              <div className="disco-download-bar mt-6">
+                <div className="disco-card p-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <button
+                      className="disco-btn-download flex-1 sm:flex-none"
+                      onClick={downloadResult}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
+                        <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Download Painting
+                    </button>
+                    <button
+                      className="disco-btn-download-alt flex-1 sm:flex-none"
+                      onClick={downloadComparison}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
+                        <rect x="2" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                        <rect x="11" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M5.5 17v1.5h9V17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                      Download Comparison
+                    </button>
+                  </div>
+                  <p className="text-xs mt-2 text-center sm:text-left" style={{ color: 'var(--de-text-dim)', opacity: 0.5 }}>
+                    Comparison includes watermark: i-say-disco-you-say-party.vercel.app
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

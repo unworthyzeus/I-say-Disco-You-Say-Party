@@ -373,3 +373,78 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 8px rgba(74, 124, 125, 0.3);
 }
 
+/* Prominent download buttons */
+.disco-btn-download {
+  background: linear-gradient(135deg, var(--de-accent-ochre) 0%, var(--de-accent-amber) 50%, var(--de-accent-gold) 100%);
+  color: var(--de-bg-deep);
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(196, 154, 74, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.disco-btn-download:hover {
+  background: linear-gradient(135deg, var(--de-accent-amber) 0%, var(--de-accent-gold) 50%, var(--de-accent-amber) 100%);
+  box-shadow: 0 6px 24px rgba(196, 154, 74, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.disco-btn-download:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(196, 154, 74, 0.2);
+}
+
+.disco-btn-download-alt {
+  background: transparent;
+  color: var(--de-accent-gold);
+  border: 2px solid var(--de-accent-ochre);
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 12px 28px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.disco-btn-download-alt:hover {
+  background: rgba(196, 154, 74, 0.1);
+  border-color: var(--de-accent-gold);
+  box-shadow: 0 4px 16px rgba(196, 154, 74, 0.15);
+}
+
+.disco-btn-download-alt:active {
+  background: rgba(196, 154, 74, 0.15);
+}
+
+/* On mobile, make download bar sticky at bottom */
+@media (max-width: 640px) {
+  .disco-download-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    margin: 0;
+    padding: 0;
+  }
+  .disco-download-bar .disco-card {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.6);
+  }
+}
+

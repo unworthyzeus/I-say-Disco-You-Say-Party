@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#1a1611"/>
+  <rect x="8" y="8" width="176" height="176" rx="28" fill="none" stroke="#c49a4a" stroke-width="2" opacity="0.3"/>
+  <ellipse cx="96" cy="88" rx="52" ry="44" fill="none" stroke="#c49a4a" stroke-width="3"/>
+  <circle cx="72" cy="76" r="8" fill="#a65d3f"/>
+  <circle cx="88" cy="64" r="8" fill="#c49a4a"/>
+  <circle cx="108" cy="66" r="8" fill="#4a7c7d"/>
+  <circle cx="120" cy="80" r="8" fill="#6b7d5a"/>
+  <circle cx="114" cy="100" r="6" fill="#d4a844"/>
+  <line x1="60" y1="116" x2="132" y2="56" stroke="#c49a4a" stroke-width="3" stroke-linecap="round"/>
+  <text x="96" y="156" text-anchor="middle" font-family="Georgia,serif" font-size="18" font-weight="bold" fill="#c49a4a">DISCO</text>
+  <text x="96" y="174" text-anchor="middle" font-family="Georgia,serif" font-size="12" fill="#9a8b72" font-style="italic">party</text>
+</svg>
