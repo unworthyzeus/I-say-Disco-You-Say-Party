@@ -66,24 +66,26 @@ export interface FaceRegion {
 }
 
 export interface FilterOptions {
-  intensity: number;         // 0-1, overall effect strength
-  posterizeLevels: number;   // 4-12, color quantization levels
-  edgeStrength: number;      // 0-1, dark outline strength
-  brushSize: number;         // 2-6, oil paint brush radius
-  warmth: number;            // 0-1, warm amber tint
-  saturation: number;        // 0-1, color saturation
-  textureStrength: number;   // 0-1, canvas texture overlay
+  intensity: number;            // 0-1, overall effect strength
+  posterizeLevels: number;      // 4-12, color quantization levels
+  edgeStrength: number;         // 0-1, dark outline strength
+  brushSize: number;            // 2-6, oil paint brush radius
+  warmth: number;               // 0-1, warm amber tint
+  saturation: number;           // 0-1, color saturation
+  textureStrength: number;      // 0-1, canvas texture overlay
+  detailPreservation: number;   // 0-1, how much fine detail to preserve
   faceRegions: FaceRegion[];
 }
 
 export const DEFAULT_OPTIONS: FilterOptions = {
   intensity: 0.85,
-  posterizeLevels: 8,
-  edgeStrength: 0.6,
-  brushSize: 4,
+  posterizeLevels: 5,
+  edgeStrength: 0.7,
+  brushSize: 5,
   warmth: 0.35,
   saturation: 0.60,
-  textureStrength: 0.3,
+  textureStrength: 0.12,
+  detailPreservation: 0.1,
   faceRegions: []
 };
 
@@ -615,21 +617,22 @@ function applyCanvasTexture(
   const w = src.width;
   const h = src.height;
 
-  // Generate procedural canvas texture (crosshatch + noise pattern)
+  // Generate procedural canvas weave texture — smooth, low-frequency pattern
+  // that mimics real canvas without per-pixel stippling
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
 
-      // Crosshatch canvas pattern
-      const crosshatch = ((x + y) % 3 === 0 ? -15 : 0) +
-        ((x - y + 1000) % 4 === 0 ? -10 : 0);
+      // Canvas weave: horizontal and vertical thread pattern (every 3-4px)
+      const threadH = Math.sin(x * 1.05) * Math.sin(y * 0.35) * 8;
+      const threadV = Math.sin(y * 1.05) * Math.sin(x * 0.35) * 8;
+      const weave = (threadH + threadV) * 0.5;
 
-      // Pseudo-random noise (deterministic based on position)
-      const noise = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
-      const noiseVal = (noise - 0.5) * 30;
+      // Low-frequency noise (smooth undulation, not per-pixel)
+      const noise1 = Math.sin(x * 0.08 + y * 0.06) * 6;
+      const noise2 = Math.sin(x * 0.13 - y * 0.09 + 2.7) * 4;
 
-      // Combine
-      const textureVal = (crosshatch + noiseVal) * strength;
+      const textureVal = (weave + noise1 + noise2) * strength;
 
       d[idx] = Math.max(0, Math.min(255, d[idx] + textureVal));
       d[idx + 1] = Math.max(0, Math.min(255, d[idx + 1] + textureVal));
@@ -790,6 +793,190 @@ function bilateralFilter(
 }
 
 // ============================================================
+// Step 9: Detail Recovery via High-Pass Blending
+// Extracts fine detail from the original and blends it back
+// into the painted result to preserve sharpness and texture.
+// ============================================================
+
+function extractHighPassDetail(
+  original: ImageData,
+  blurred: ImageData,
+  width: number,
+  height: number
+): Float32Array {
+  const od = original.data;
+  const bd = blurred.data;
+  // Store per-pixel luminance difference (high-frequency detail)
+  const detail = new Float32Array(width * height);
+
+  for (let i = 0; i < detail.length; i++) {
+    const idx = i * 4;
+    const origLum = 0.299 * od[idx] + 0.587 * od[idx + 1] + 0.114 * od[idx + 2];
+    const blurLum = 0.299 * bd[idx] + 0.587 * bd[idx + 1] + 0.114 * bd[idx + 2];
+    detail[i] = origLum - blurLum; // positive = brighter detail, negative = darker
+  }
+
+  return detail;
+}
+
+function boxBlur(src: ImageData, width: number, height: number, radius: number): ImageData {
+  const dst = new ImageData(new Uint8ClampedArray(src.data), width, height);
+  const sd = src.data;
+  const dd = dst.data;
+  const tmp = new Uint8ClampedArray(sd.length);
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(Math.max(x + dx, 0), width - 1);
+        const idx = (y * width + nx) * 4;
+        sumR += sd[idx]; sumG += sd[idx + 1]; sumB += sd[idx + 2];
+        count++;
+      }
+      const idx = (y * width + x) * 4;
+      tmp[idx] = sumR / count;
+      tmp[idx + 1] = sumG / count;
+      tmp[idx + 2] = sumB / count;
+      tmp[idx + 3] = sd[idx + 3];
+    }
+  }
+
+  // Vertical pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(Math.max(y + dy, 0), height - 1);
+        const idx = (ny * width + x) * 4;
+        sumR += tmp[idx]; sumG += tmp[idx + 1]; sumB += tmp[idx + 2];
+        count++;
+      }
+      const idx = (y * width + x) * 4;
+      dd[idx] = sumR / count;
+      dd[idx + 1] = sumG / count;
+      dd[idx + 2] = sumB / count;
+      dd[idx + 3] = tmp[idx + 3];
+    }
+  }
+
+  return dst;
+}
+
+function applyDetailRecovery(
+  painted: ImageData,
+  highPassDetail: Float32Array,
+  width: number,
+  height: number,
+  strength: number,
+  faceRegions: FaceRegion[]
+): ImageData {
+  const dst = new ImageData(new Uint8ClampedArray(painted.data), width, height);
+  const d = dst.data;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      const idx = p * 4;
+      const detail = highPassDetail[p];
+
+      // Stronger detail recovery in face regions (preserve facial features)
+      let localStrength = strength;
+      for (const face of faceRegions) {
+        if (x >= face.x && x <= face.x + face.width &&
+          y >= face.y && y <= face.y + face.height) {
+          localStrength = Math.min(1, strength * 1.4);
+          break;
+        }
+      }
+
+      // Apply detail with soft clamping to avoid noise amplification
+      // Only recover prominent detail — suppress small variations (sensor noise)
+      const absDetail = Math.abs(detail);
+      const softDetail = absDetail > 8 ? detail * (1 - Math.exp(-absDetail / 30)) : detail * 0.1;
+      const adjustment = softDetail * localStrength;
+
+      d[idx] = Math.max(0, Math.min(255, d[idx] + adjustment));
+      d[idx + 1] = Math.max(0, Math.min(255, d[idx + 1] + adjustment));
+      d[idx + 2] = Math.max(0, Math.min(255, d[idx + 2] + adjustment));
+    }
+  }
+
+  return dst;
+}
+
+// ============================================================
+// Step 10: Multi-scale Edge Detection for finer detail outlines
+// Combines Sobel at multiple scales for both bold contours and
+// fine structural detail (hair, wrinkles, fabric folds, etc.)
+// ============================================================
+
+function multiScaleEdges(
+  src: ImageData,
+  width: number,
+  height: number,
+  detailLevel: number
+): Float32Array {
+  const gray = new Float32Array(width * height);
+  const sd = src.data;
+
+  for (let i = 0; i < gray.length; i++) {
+    const idx = i * 4;
+    gray[i] = 0.299 * sd[idx] + 0.587 * sd[idx + 1] + 0.114 * sd[idx + 2];
+  }
+
+  const edges = new Float32Array(width * height);
+
+  // Standard Sobel (bold contours)
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const tl = gray[(y - 1) * width + (x - 1)];
+      const t = gray[(y - 1) * width + x];
+      const tr = gray[(y - 1) * width + (x + 1)];
+      const l = gray[y * width + (x - 1)];
+      const r = gray[y * width + (x + 1)];
+      const bl = gray[(y + 1) * width + (x - 1)];
+      const b = gray[(y + 1) * width + x];
+      const br = gray[(y + 1) * width + (x + 1)];
+
+      const gx = -tl - 2 * l - bl + tr + 2 * r + br;
+      const gy = -tl - 2 * t - tr + bl + 2 * b + br;
+      edges[y * width + x] = Math.sqrt(gx * gx + gy * gy);
+    }
+  }
+
+  // Fine detail edges using Laplacian (second derivative — catches fine lines)
+  if (detailLevel > 0.2) {
+    const fineWeight = detailLevel * 0.6;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const c = gray[y * width + x];
+        const t = gray[(y - 1) * width + x];
+        const b = gray[(y + 1) * width + x];
+        const l = gray[y * width + (x - 1)];
+        const r = gray[y * width + (x + 1)];
+        const laplacian = Math.abs(t + b + l + r - 4 * c);
+        edges[y * width + x] += laplacian * fineWeight;
+      }
+    }
+  }
+
+  // Normalize
+  let max = 0;
+  for (let i = 0; i < edges.length; i++) {
+    if (edges[i] > max) max = edges[i];
+  }
+  if (max > 0) {
+    for (let i = 0; i < edges.length; i++) {
+      edges[i] /= max;
+    }
+  }
+
+  return edges;
+}
+
+// ============================================================
 // Main Processing Pipeline
 // ============================================================
 
@@ -830,36 +1017,74 @@ export async function applyDiscoElysiumFilter(
 
   let imageData = ctx.getImageData(0, 0, w, h);
 
-  // Pipeline step 1: Pre-smooth with bilateral filter (light touch)
+  // Keep a copy of the original for detail recovery
+  const originalImageData = new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+
+  const detail = options.detailPreservation;
+
+  // Pipeline step 1: Pre-smooth with bilateral filter (lighter when detail is high)
   onProgress?.('Smoothing with bilateral filter...', 0.05);
   await yieldToMain();
-  imageData = bilateralFilter(imageData, w, h, 2, 8, 40, scaledFaces);
+  const bilateralRadius = detail > 0.6 ? 2 : detail > 0.3 ? 3 : 4;
+  const bilateralSigmaColor = Math.max(20, 45 - detail * 25); // lower = smoother; higher detail = less smoothing
+  imageData = bilateralFilter(imageData, w, h, bilateralRadius, 8, bilateralSigmaColor, scaledFaces);
 
-  // Pipeline step 2: Oil paint / Kuwahara filter
+  // Pipeline step 2: Oil paint / Kuwahara filter (smaller effective radius with high detail)
   onProgress?.('Applying oil paint effect...', 0.15);
   await yieldToMain();
-  imageData = oilPaintFilter(imageData, options.brushSize, w, h, scaledFaces);
+  const effectiveBrushSize = detail > 0.5
+    ? Math.max(2, options.brushSize - 1)
+    : options.brushSize + (detail < 0.2 ? 1 : 0);
+  imageData = oilPaintFilter(imageData, effectiveBrushSize, w, h, scaledFaces);
 
-  // Pipeline step 3: Brushstroke simulation
-  onProgress?.('Simulating brushstrokes...', 0.35);
+  // Pipeline step 3: Brushstroke simulation (gentler with high detail)
+  onProgress?.('Simulating brushstrokes...', 0.30);
   await yieldToMain();
-  imageData = simulateBrushstrokes(imageData, w, h, Math.max(2, options.brushSize - 1));
+  const strokeSize = detail > 0.5
+    ? Math.max(1, options.brushSize - 2)
+    : Math.max(2, options.brushSize - 1);
+  imageData = simulateBrushstrokes(imageData, w, h, strokeSize);
 
-  // Pipeline step 4: Posterize for cel-shading
+  // Pipeline step 3b: Detail recovery — blend back high-frequency detail from original
+  // Only engage at higher detail settings to keep cel-shading clean
+  if (detail > 0.4) {
+    onProgress?.('Recovering fine details...', 0.40);
+    await yieldToMain();
+    const blurRadius = Math.max(3, Math.round(4 + (1 - detail) * 3));
+    const blurredOriginal = boxBlur(originalImageData, w, h, blurRadius);
+    const highPass = extractHighPassDetail(originalImageData, blurredOriginal, w, h);
+    imageData = applyDetailRecovery(imageData, highPass, w, h, detail * 0.5, scaledFaces);
+  }
+
+  // Pipeline step 4: Posterize for cel-shading (more levels when detail is high)
   onProgress?.('Applying cel-shading...', 0.50);
   await yieldToMain();
-  imageData = posterize(imageData, options.posterizeLevels, scaledFaces);
+  const effectiveLevels = detail > 0.5
+    ? Math.min(12, options.posterizeLevels + Math.round(detail * 2))
+    : options.posterizeLevels;
+  imageData = posterize(imageData, effectiveLevels, scaledFaces);
+
+  // Pipeline step 4b: Light cleanup pass — smooth single-pixel color noise
+  // from posterization boundaries for cleaner flat regions
+  if (detail < 0.5) {
+    imageData = boxBlur(imageData, w, h, 1);
+    imageData = posterize(imageData, effectiveLevels, scaledFaces);
+  }
 
   // Pipeline step 5: Color remapping to Disco Elysium palette
   onProgress?.('Remapping to Disco Elysium palette...', 0.60);
   await yieldToMain();
   imageData = remapColors(imageData, options.warmth, options.saturation, scaledFaces);
 
-  // Pipeline step 6: Edge detection + dark outlines
+  // Pipeline step 6: Edge detection + dark outlines (multi-scale when detail is high)
   onProgress?.('Detecting edges for outlines...', 0.72);
   await yieldToMain();
-  const edges = sobelEdges(imageData, w, h);
-  imageData = applyEdges(imageData, edges, options.edgeStrength, w, h);
+  const edges = detail > 0.2
+    ? multiScaleEdges(imageData, w, h, detail)
+    : sobelEdges(imageData, w, h);
+  // Lower edge threshold when detail is high to reveal finer outlines
+  const effectiveEdgeStrength = options.edgeStrength + detail * 0.15;
+  imageData = applyEdges(imageData, edges, Math.min(1, effectiveEdgeStrength), w, h);
 
   // Pipeline step 7: Canvas texture overlay
   onProgress?.('Adding canvas texture...', 0.85);

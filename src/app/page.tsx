@@ -19,8 +19,516 @@ const QUOTES = [
   "What is a portrait but a confession with colours?",
 ];
 
+type PresetValues = Omit<FilterOptions, "faceRegions">;
+
+const STYLE_PRESETS: Array<{
+  name: string;
+  values: PresetValues;
+}> = [
+  {
+    name: "Default",
+    values: {
+      intensity: 0.85,
+      posterizeLevels: 5,
+      edgeStrength: 0.7,
+      brushSize: 5,
+      warmth: 0.35,
+      saturation: 0.6,
+      textureStrength: 0.12,
+      detailPreservation: 0.1,
+    },
+  },
+  {
+    name: "Cartoon Soft",
+    values: {
+      intensity: 0.78,
+      posterizeLevels: 6,
+      edgeStrength: 0.5,
+      brushSize: 5,
+      warmth: 0.32,
+      saturation: 0.68,
+      textureStrength: 0.08,
+      detailPreservation: 0.15,
+    },
+  },
+  {
+    name: "Cartoon Bold",
+    values: {
+      intensity: 0.92,
+      posterizeLevels: 4,
+      edgeStrength: 0.85,
+      brushSize: 6,
+      warmth: 0.4,
+      saturation: 0.72,
+      textureStrength: 0.06,
+      detailPreservation: 0.05,
+    },
+  },
+  {
+    name: "Noir Paint",
+    values: {
+      intensity: 0.9,
+      posterizeLevels: 5,
+      edgeStrength: 0.82,
+      brushSize: 5,
+      warmth: 0.18,
+      saturation: 0.38,
+      textureStrength: 0.15,
+      detailPreservation: 0.2,
+    },
+  },
+  {
+    name: "Golden Hour",
+    values: {
+      intensity: 0.84,
+      posterizeLevels: 6,
+      edgeStrength: 0.6,
+      brushSize: 5,
+      warmth: 0.58,
+      saturation: 0.66,
+      textureStrength: 0.1,
+      detailPreservation: 0.2,
+    },
+  },
+  {
+    name: "Muted Film",
+    values: {
+      intensity: 0.82,
+      posterizeLevels: 7,
+      edgeStrength: 0.5,
+      brushSize: 4,
+      warmth: 0.28,
+      saturation: 0.46,
+      textureStrength: 0.1,
+      detailPreservation: 0.3,
+    },
+  },
+  {
+    name: "Canvas Heavy",
+    values: {
+      intensity: 0.88,
+      posterizeLevels: 5,
+      edgeStrength: 0.65,
+      brushSize: 5,
+      warmth: 0.38,
+      saturation: 0.58,
+      textureStrength: 0.3,
+      detailPreservation: 0.15,
+    },
+  },
+  {
+    name: "Fine Detail",
+    values: {
+      intensity: 0.82,
+      posterizeLevels: 8,
+      edgeStrength: 0.65,
+      brushSize: 3,
+      warmth: 0.3,
+      saturation: 0.55,
+      textureStrength: 0.15,
+      detailPreservation: 0.8,
+    },
+  },
+];
+
+const DE_PALETTES = {
+  martinaiseDusk: {
+    label: "Martinaise Dusk",
+    colors: [
+      "#0d1620", "#1a2b42", "#2b4265",  // deep blue-grey shadows
+      "#6f4538", "#8b5040", "#a5654d",   // rust / burnt sienna mids
+      "#3a5f6b", "#4d7a82",              // teal mid-tones
+      "#c48c5e", "#dab07a",              // amber / ochre highlights
+      "#7a6878",                          // dusty mauve accent
+      "#e8d8c2",                          // warm cream
+    ],
+  },
+  whirlingInRags: {
+    label: "Whirling-in-Rags",
+    colors: [
+      "#161010", "#2a1a18", "#3f2820",   // dark warm browns
+      "#1d2e3d", "#2d4456",              // cool blue-grey shadows
+      "#7a4834", "#9c5e42", "#b8785a",   // warm copper / terracotta
+      "#4a6474", "#5f7e8b",              // slate teal mids
+      "#d4a472",                          // golden sand
+      "#ecd6b8",                          // pale warm
+    ],
+  },
+  paleCold: {
+    label: "Pale Cold",
+    colors: [
+      "#111a28", "#1e3048", "#2f4a68",   // deep blue shadows
+      "#4a3340", "#6b4454",              // muted plum / warm darks
+      "#4d7090", "#6888a8",              // steel blue mids
+      "#8a5e50", "#a47060",              // salmon / warm rose
+      "#90a0af",                          // cool grey-blue
+      "#c8a888",                          // warm tan accent
+      "#e8e4dc",                          // pale cream highlight
+    ],
+  },
+  unionHeat: {
+    label: "Union Heat",
+    colors: [
+      "#1c1212", "#321a1c", "#4d2428",   // deep crimson-brown shadows
+      "#1a2838", "#2a3e54",              // dark cool blue-grey
+      "#7c3538", "#a04842", "#c06050",   // warm reds / terra cotta
+      "#48687c", "#5c8098",              // blue-steel contrast
+      "#d89058",                          // amber accent
+      "#e8c890",                          // golden highlight
+    ],
+  },
+  tribunalNight: {
+    label: "Tribunal Night",
+    colors: [
+      "#0c1018", "#152030", "#1e3248",   // very dark blue
+      "#3a2428", "#543838",              // deep warm maroon
+      "#385870", "#4a7090",              // mid blue
+      "#785050", "#906058",              // muted warm rose/brick
+      "#6080a0",                          // slate blue highlight
+      "#b89878",                          // warm sand accent
+      "#c8c0b4",                          // neutral warm-grey
+    ],
+  },
+} as const;
+
+type PaletteKey = keyof typeof DE_PALETTES;
+type PaletteSelection = "none" | "auto" | PaletteKey;
+type ResolvedPaletteSelection = "none" | PaletteKey;
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const clean = hex.replace("#", "");
+  const value = Number.parseInt(clean, 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+};
+
+const PALETTE_RGB: Record<PaletteKey, Array<[number, number, number]>> = Object.fromEntries(
+  Object.entries(DE_PALETTES).map(([key, palette]) => [key, palette.colors.map((color) => hexToRgb(color))])
+) as Record<PaletteKey, Array<[number, number, number]>>;
+
+// Pre-compute luminance and warm bias for each palette color
+const PALETTE_META: Record<PaletteKey, Array<{ lum: number; warmth: number }>> = Object.fromEntries(
+  Object.entries(PALETTE_RGB).map(([key, colors]) => [
+    key,
+    colors.map((c) => ({
+      lum: 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2],
+      warmth: c[0] - c[2], // positive = warm, negative = cool
+    })),
+  ])
+) as Record<PaletteKey, Array<{ lum: number; warmth: number }>>;
+
+// Luminance-aware palette matching.
+// Matches brightness first, then biases shadows toward cool palette entries
+// and highlights toward warm ones — the core Disco Elysium color split.
+const findStyledPaletteColor = (
+  r: number,
+  g: number,
+  b: number,
+  palette: Array<[number, number, number]>,
+  meta: Array<{ lum: number; warmth: number }>
+) => {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const inputWarmth = r - b;
+  // Shadows should lean cool, highlights should lean warm
+  const lumNorm = lum / 255; // 0 = dark, 1 = bright
+  // desiredWarmth: negative for shadows, positive for highlights
+  const desiredWarmth = (lumNorm - 0.4) * 80;
+
+  let nearest = palette[0];
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < palette.length; i++) {
+    const color = palette[i];
+    const m = meta[i];
+
+    // Luminance distance (most important — match brightness)
+    const lumDiff = lum - m.lum;
+    const lumDist = lumDiff * lumDiff * 3.0;
+
+    // Chrominance distance (less weight)
+    const dr = r - color[0];
+    const dg = g - color[1];
+    const db = b - color[2];
+    const chromaDist = (dr * dr + dg * dg + db * db) * 0.4;
+
+    // Warm/cool style bias: reward palette entries that match the desired
+    // temperature for this luminance level
+    const warmthDiff = m.warmth - desiredWarmth;
+    const warmthPenalty = warmthDiff * warmthDiff * 0.08;
+
+    const dist = lumDist + chromaDist + warmthPenalty;
+    if (dist < bestDist) {
+      bestDist = dist;
+      nearest = color;
+    }
+  }
+
+  return nearest;
+};
+
+// Simple RGB nearest for palette detection scoring (needs to be unbiased)
+const findNearestPaletteColor = (r: number, g: number, b: number, palette: Array<[number, number, number]>) => {
+  let nearest = palette[0];
+  let bestDist = Number.POSITIVE_INFINITY;
+
+  for (const color of palette) {
+    const dr = r - color[0];
+    const dg = g - color[1];
+    const db = b - color[2];
+    const dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      nearest = color;
+    }
+  }
+
+  return nearest;
+};
+
+const colorLuminance = (color: [number, number, number]) => 0.299 * color[0] + 0.587 * color[1] + 0.114 * color[2];
+
+const choosePaletteColorStyled = (
+  r: number,
+  g: number,
+  b: number,
+  palette: Array<[number, number, number]>,
+  meta: Array<{ lum: number; warmth: number }>,
+  seed: number
+) => {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const lumNorm = lum / 255;
+  const desiredWarmth = (lumNorm - 0.4) * 80;
+
+  // Find best two candidates
+  let nearestIdx = 0, secondIdx = 0;
+  let nearestDist = Number.POSITIVE_INFINITY;
+  let secondDist = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < palette.length; i++) {
+    const color = palette[i];
+    const m = meta[i];
+
+    const lumDiff = lum - m.lum;
+    const lumD = lumDiff * lumDiff * 3.0;
+    const dr = r - color[0];
+    const dg = g - color[1];
+    const db = b - color[2];
+    const chromaD = (dr * dr + dg * dg + db * db) * 0.4;
+    const warmDiff = m.warmth - desiredWarmth;
+    const warmD = warmDiff * warmDiff * 0.08;
+    const dist = lumD + chromaD + warmD;
+
+    if (dist < nearestDist) {
+      secondIdx = nearestIdx;
+      secondDist = nearestDist;
+      nearestIdx = i;
+      nearestDist = dist;
+    } else if (dist < secondDist) {
+      secondIdx = i;
+      secondDist = dist;
+    }
+  }
+
+  if (nearestIdx === secondIdx) return palette[nearestIdx];
+
+  // Dither between the two nearest to avoid hard banding
+  const closeness = nearestDist / Math.max(1, secondDist);
+  if (closeness > 0.88) return palette[nearestIdx];
+
+  const pseudo = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1;
+  const chanceSecond = Math.min(0.5, (0.88 - closeness) * 1.5);
+  if (pseudo < chanceSecond) return palette[secondIdx];
+
+  return palette[nearestIdx];
+};
+
+const detectPaletteFromImageData = (imageData: ImageData): PaletteKey => {
+  const { data, width, height } = imageData;
+  const sampleStep = Math.max(3, Math.round(Math.min(width, height) / 120));
+
+  let bestPalette: PaletteKey = "martinaiseDusk";
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (const key of Object.keys(DE_PALETTES) as PaletteKey[]) {
+    const palette = PALETTE_RGB[key];
+    let score = 0;
+    let samples = 0;
+
+    for (let y = 0; y < height; y += sampleStep) {
+      for (let x = 0; x < width; x += sampleStep) {
+        const i = (y * width + x) * 4;
+        const a = data[i + 3];
+        if (a < 16) continue;
+
+        const nearest = findNearestPaletteColor(data[i], data[i + 1], data[i + 2], palette);
+        const dr = data[i] - nearest[0];
+        const dg = data[i + 1] - nearest[1];
+        const db = data[i + 2] - nearest[2];
+        score += dr * dr + dg * dg + db * db;
+        samples++;
+      }
+    }
+
+    const normalizedScore = samples > 0 ? score / samples : Number.POSITIVE_INFINITY;
+    if (normalizedScore < bestScore) {
+      bestScore = normalizedScore;
+      bestPalette = key;
+    }
+  }
+
+  return bestPalette;
+};
+
+const applyPaletteToImageData = (imageData: ImageData, paletteKey: PaletteKey) => {
+  const palette = PALETTE_RGB[paletteKey];
+  const meta = PALETTE_META[paletteKey];
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 8) continue;
+    const styled = choosePaletteColorStyled(data[i], data[i + 1], data[i + 2], palette, meta, i + data[i] * 7 + data[i + 1] * 13 + data[i + 2] * 17);
+    data[i] = styled[0];
+    data[i + 1] = styled[1];
+    data[i + 2] = styled[2];
+  }
+};
+
+const createFaceSubjectMask = (width: number, height: number, faceRegions: FilterOptions["faceRegions"]) => {
+  const maskCanvas = document.createElement("canvas");
+  maskCanvas.width = width;
+  maskCanvas.height = height;
+  const maskCtx = maskCanvas.getContext("2d");
+  if (!maskCtx) return maskCanvas;
+
+  maskCtx.clearRect(0, 0, width, height);
+  maskCtx.fillStyle = "rgba(0,0,0,0)";
+  maskCtx.fillRect(0, 0, width, height);
+  maskCtx.fillStyle = "rgba(255,255,255,1)";
+
+  for (const face of faceRegions) {
+    const cx = face.x + face.width * 0.5;
+    const faceCy = face.y + face.height * 0.5;
+
+    const headW = face.width * 1.7;
+    const headH = face.height * 2.0;
+
+    const torsoW = face.width * 4.0;
+    const torsoH = face.height * 7.2;
+    const torsoCy = face.y + face.height * 3.7;
+
+    const shoulderW = face.width * 4.8;
+    const shoulderH = face.height * 2.2;
+    const shoulderCy = face.y + face.height * 2.2;
+
+    maskCtx.beginPath();
+    maskCtx.ellipse(cx, faceCy, headW * 0.5, headH * 0.5, 0, 0, Math.PI * 2);
+    maskCtx.fill();
+
+    maskCtx.beginPath();
+    maskCtx.ellipse(cx, shoulderCy, shoulderW * 0.5, shoulderH * 0.5, 0, 0, Math.PI * 2);
+    maskCtx.fill();
+
+    maskCtx.beginPath();
+    maskCtx.ellipse(cx, torsoCy, torsoW * 0.5, torsoH * 0.5, 0, 0, Math.PI * 2);
+    maskCtx.fill();
+  }
+
+  const featheredCanvas = document.createElement("canvas");
+  featheredCanvas.width = width;
+  featheredCanvas.height = height;
+  const featheredCtx = featheredCanvas.getContext("2d");
+  if (!featheredCtx) return maskCanvas;
+
+  featheredCtx.filter = "blur(16px)";
+  featheredCtx.drawImage(maskCanvas, 0, 0);
+  featheredCtx.filter = "none";
+  return featheredCanvas;
+};
+
+type CompositeScratch = {
+  abstractCanvas: HTMLCanvasElement;
+  abstractCtx: CanvasRenderingContext2D;
+  subjectCanvas: HTMLCanvasElement;
+  subjectCtx: CanvasRenderingContext2D;
+};
+
+const createCompositeScratch = (width: number, height: number): CompositeScratch | null => {
+  const abstractCanvas = document.createElement("canvas");
+  abstractCanvas.width = width;
+  abstractCanvas.height = height;
+  const abstractCtx = abstractCanvas.getContext("2d");
+  if (!abstractCtx) return null;
+
+  const subjectCanvas = document.createElement("canvas");
+  subjectCanvas.width = width;
+  subjectCanvas.height = height;
+  const subjectCtx = subjectCanvas.getContext("2d");
+  if (!subjectCtx) return null;
+
+  return { abstractCanvas, abstractCtx, subjectCanvas, subjectCtx };
+};
+
+const composeAbstractBackgroundWithSubject = (
+  targetCanvas: HTMLCanvasElement,
+  paintedCanvas: HTMLCanvasElement,
+  maskCanvas: HTMLCanvasElement,
+  scratch?: CompositeScratch
+) => {
+  const width = targetCanvas.width;
+  const height = targetCanvas.height;
+  const targetCtx = targetCanvas.getContext("2d");
+  if (!targetCtx) return;
+
+  const abstractCanvas = scratch?.abstractCanvas ?? document.createElement("canvas");
+  if (abstractCanvas.width !== width || abstractCanvas.height !== height) {
+    abstractCanvas.width = width;
+    abstractCanvas.height = height;
+  }
+  const abstractCtx = scratch?.abstractCtx ?? abstractCanvas.getContext("2d");
+  if (!abstractCtx) return;
+
+  abstractCtx.clearRect(0, 0, width, height);
+
+  abstractCtx.drawImage(paintedCanvas, 0, 0, width, height);
+  abstractCtx.globalAlpha = 0.42;
+  abstractCtx.filter = "blur(9px) saturate(110%) contrast(100%)";
+  abstractCtx.drawImage(paintedCanvas, 0, 0, width, height);
+  abstractCtx.globalAlpha = 1;
+  abstractCtx.filter = "none";
+
+  abstractCtx.save();
+  abstractCtx.globalCompositeOperation = "soft-light";
+  abstractCtx.globalAlpha = 0.1;
+  const grad = abstractCtx.createRadialGradient(width * 0.5, height * 0.5, width * 0.12, width * 0.5, height * 0.5, width * 0.8);
+  grad.addColorStop(0, "rgba(190,140,90,0.35)");
+  grad.addColorStop(1, "rgba(38,56,80,0.45)");
+  abstractCtx.fillStyle = grad;
+  abstractCtx.fillRect(0, 0, width, height);
+  abstractCtx.restore();
+
+  const subjectCanvas = scratch?.subjectCanvas ?? document.createElement("canvas");
+  if (subjectCanvas.width !== width || subjectCanvas.height !== height) {
+    subjectCanvas.width = width;
+    subjectCanvas.height = height;
+  }
+  const subjectCtx = scratch?.subjectCtx ?? subjectCanvas.getContext("2d");
+  if (!subjectCtx) return;
+
+  subjectCtx.clearRect(0, 0, width, height);
+
+  subjectCtx.drawImage(paintedCanvas, 0, 0, width, height);
+  subjectCtx.globalCompositeOperation = "destination-in";
+  subjectCtx.drawImage(maskCanvas, 0, 0, width, height);
+  subjectCtx.globalCompositeOperation = "source-over";
+
+  targetCtx.clearRect(0, 0, width, height);
+  targetCtx.drawImage(abstractCanvas, 0, 0, width, height);
+  targetCtx.drawImage(subjectCanvas, 0, 0, width, height);
+};
+
 export default function Home() {
-  const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [sourceMedia, setSourceMedia] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState<"image" | "video" | null>(null);
+  const [processedVideoUrl, setProcessedVideoUrl] = useState<string | null>(null);
+  const [processedVideoExt, setProcessedVideoExt] = useState<"mp4" | "webm">("webm");
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
@@ -29,18 +537,18 @@ export default function Home() {
   const [faceCount, setFaceCount] = useState(0);
   const [modelsReady, setModelsReady] = useState(false);
   const [sourceLoaded, setSourceLoaded] = useState(false);
-  const [quote, setQuote] = useState(QUOTES[0]);
-  useEffect(() => {
-    setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
-  }, []);
+  const quote = QUOTES[0];
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<PaletteSelection>("auto");
+  const [activePalette, setActivePalette] = useState<PaletteKey>("martinaiseDusk");
 
   const [options, setOptions] = useState<FilterOptions>({ ...DEFAULT_OPTIONS });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
+  const sourceMediaRef = useRef<string | null>(null);
+  const processedVideoUrlRef = useRef<string | null>(null);
 
   // Load face detection models on mount
   useEffect(() => {
@@ -49,19 +557,65 @@ export default function Home() {
     });
   }, []);
 
-  const handleFile = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setSourceImage(e.target?.result as string);
-      setProcessed(false);
-      setSourceLoaded(false);
-      setProgress(0);
-      setProgressText("");
-      setShowAdvanced(true);
+  useEffect(() => {
+    sourceMediaRef.current = sourceMedia;
+  }, [sourceMedia]);
+
+  useEffect(() => {
+    processedVideoUrlRef.current = processedVideoUrl;
+  }, [processedVideoUrl]);
+
+  useEffect(() => {
+    return () => {
+      const currentSourceMedia = sourceMediaRef.current;
+      const currentProcessedVideoUrl = processedVideoUrlRef.current;
+
+      if (currentSourceMedia?.startsWith("blob:")) URL.revokeObjectURL(currentSourceMedia);
+      if (currentProcessedVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(currentProcessedVideoUrl);
     };
-    reader.readAsDataURL(file);
   }, []);
+
+  const resetOutput = useCallback(() => {
+    setProcessed(false);
+    setProgress(0);
+    setProgressText("");
+    setFaceCount(0);
+    setSourceLoaded(false);
+    if (processedVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(processedVideoUrl);
+    setProcessedVideoUrl(null);
+  }, [processedVideoUrl]);
+
+  const clearMedia = useCallback(() => {
+    if (sourceMedia?.startsWith("blob:")) URL.revokeObjectURL(sourceMedia);
+    if (processedVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(processedVideoUrl);
+    setSourceMedia(null);
+    setSourceType(null);
+    setProcessedVideoUrl(null);
+    setProcessedVideoExt("webm");
+    setProcessing(false);
+    setShowAdvanced(false);
+    setFaceCount(0);
+    setSourceLoaded(false);
+    setProgress(0);
+    setProgressText("");
+    setProcessed(false);
+  }, [processedVideoUrl, sourceMedia]);
+
+  const handleFile = useCallback((file: File) => {
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) return;
+
+    resetOutput();
+
+    const nextUrl = URL.createObjectURL(file);
+    setSourceType(isVideo ? "video" : "image");
+    setSourceMedia((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return nextUrl;
+    });
+    setShowAdvanced(true);
+  }, [resetOutput]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -87,34 +641,71 @@ export default function Home() {
     [handleFile]
   );
 
+  const drawToSourceCanvas = useCallback((source: CanvasImageSource, width: number, height: number) => {
+    if (!sourceCanvasRef.current) return;
+    const sourceCtx = sourceCanvasRef.current.getContext("2d");
+    if (!sourceCtx) return;
+    sourceCanvasRef.current.width = width;
+    sourceCanvasRef.current.height = height;
+    sourceCtx.clearRect(0, 0, width, height);
+    sourceCtx.drawImage(source, 0, 0, width, height);
+  }, []);
+
+  const resolvePaletteForSource = useCallback((sourceCanvas: HTMLCanvasElement): ResolvedPaletteSelection => {
+    if (paletteMode === "none") {
+      return "none";
+    }
+
+    if (paletteMode !== "auto") {
+      setActivePalette(paletteMode);
+      return paletteMode;
+    }
+
+    const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    if (!sourceCtx) {
+      setActivePalette("martinaiseDusk");
+      return "martinaiseDusk";
+    }
+
+    const sourceImageData = sourceCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+    const detected = detectPaletteFromImageData(sourceImageData);
+    setActivePalette(detected);
+    return detected;
+  }, [paletteMode]);
+
+  const applyPaletteToCanvas = useCallback((canvas: HTMLCanvasElement, paletteKey: ResolvedPaletteSelection) => {
+    if (paletteKey === "none") return;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    applyPaletteToImageData(imageData, paletteKey);
+    ctx.putImageData(imageData, 0, 0);
+  }, []);
+
   const processImage = useCallback(async () => {
-    if (!sourceImage || !canvasRef.current) return;
+    if (!sourceMedia || !canvasRef.current) return;
 
     setProcessing(true);
     setProgress(0);
     setProcessed(false);
 
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = async () => {
-      imgRef.current = img;
-
-      // Draw original to source canvas for comparison
-      if (sourceCanvasRef.current) {
-        const sCtx = sourceCanvasRef.current.getContext("2d")!;
-        const maxDim = 1200;
-        let w = img.width, h = img.height;
-        if (w > maxDim || h > maxDim) {
-          const scale = maxDim / Math.max(w, h);
-          w = Math.round(w * scale);
-          h = Math.round(h * scale);
-        }
-        sourceCanvasRef.current.width = w;
-        sourceCanvasRef.current.height = h;
-        sCtx.drawImage(img, 0, 0, w, h);
+      const maxDim = 1200;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
       }
 
-      // Detect faces
+      drawToSourceCanvas(img, w, h);
+      const paletteKey: ResolvedPaletteSelection = sourceCanvasRef.current
+        ? resolvePaletteForSource(sourceCanvasRef.current)
+        : "martinaiseDusk";
+
       let faceRegions = options.faceRegions;
       if (modelsReady) {
         setProgressText("Detecting faces...");
@@ -127,7 +718,6 @@ export default function Home() {
         }
       }
 
-      // Apply the filter
       try {
         await applyDiscoElysiumFilter(
           canvasRef.current!,
@@ -138,25 +728,561 @@ export default function Home() {
             setProgress(p);
           }
         );
+        if (faceRegions.length > 0) {
+          setProgressText("Compositing abstract background...");
+          const mask = createFaceSubjectMask(canvasRef.current!.width, canvasRef.current!.height, faceRegions);
+          composeAbstractBackgroundWithSubject(canvasRef.current!, canvasRef.current!, mask);
+          setProgress(0.9);
+        }
+
+        if (paletteKey !== "none") {
+          setProgressText(`Applying palette: ${DE_PALETTES[paletteKey].label}...`);
+          setProgress(0.96);
+          applyPaletteToCanvas(canvasRef.current!, paletteKey);
+        } else {
+          setProgressText("Skipping palette mapping (None)");
+          setProgress(0.96);
+        }
         setProcessed(true);
+        setSourceLoaded(true);
       } catch (err) {
         console.error("Filter error:", err);
       }
 
       setProcessing(false);
     };
-    img.src = sourceImage;
-  }, [sourceImage, options, modelsReady]);
+    img.onerror = () => {
+      setProcessing(false);
+    };
+    img.src = sourceMedia;
+  }, [applyPaletteToCanvas, drawToSourceCanvas, modelsReady, options, resolvePaletteForSource, sourceMedia]);
+
+  const processVideo = useCallback(async () => {
+    if (!sourceMedia) return;
+    if (typeof MediaRecorder === "undefined") {
+      setProgressText("This browser does not support video export.");
+      return;
+    }
+
+    setProcessing(true);
+    setProgress(0);
+    setProcessed(false);
+    setProgressText("Loading video...");
+    setProgress(0.02);
+
+    const setVideoProgress = (value: number, text?: string) => {
+      const clamped = Math.max(0, Math.min(1, value));
+      setProgress((prev) => Math.max(prev, clamped));
+      if (text) setProgressText(text);
+    };
+
+    const video = document.createElement("video");
+    video.src = sourceMedia;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("Could not load video"));
+      });
+    } catch {
+      setProcessing(false);
+      setProgressText("Could not load video.");
+      return;
+    }
+
+    if (!video.videoWidth || !video.videoHeight) {
+      setProcessing(false);
+      return;
+    }
+
+    const maxDim = 1080;
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+    if (width > maxDim || height > maxDim) {
+      const scale = maxDim / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+
+    const frameCanvas = document.createElement("canvas");
+    frameCanvas.width = width;
+    frameCanvas.height = height;
+    const frameCtx = frameCanvas.getContext("2d", { willReadFrequently: true });
+
+    if (!frameCtx) {
+      setProcessing(false);
+      return;
+    }
+
+    if (video.readyState < 2) {
+      let firstFrameReady = true;
+      await new Promise<void>((resolve, reject) => {
+        video.onloadeddata = () => resolve();
+        video.onerror = () => reject(new Error("Could not read first video frame"));
+      }).catch(() => {
+        firstFrameReady = false;
+      });
+
+      if (!firstFrameReady) {
+        setProcessing(false);
+        setProgressText("Could not read video frames.");
+        return;
+      }
+    }
+
+    try {
+      video.currentTime = 0;
+    } catch {
+      // Some browsers may restrict seeks before playback; continue with current frame.
+    }
+
+    frameCtx.drawImage(video, 0, 0, width, height);
+    drawToSourceCanvas(frameCanvas, width, height);
+    setVideoProgress(0.06);
+
+    const paletteKey = resolvePaletteForSource(frameCanvas);
+    const paletteColors = paletteKey === "none" ? null : PALETTE_RGB[paletteKey];
+    const paletteMeta = paletteKey === "none" ? null : PALETTE_META[paletteKey];
+    if (paletteKey === "none") {
+      setVideoProgress(0.08, "Palette: None");
+    } else {
+      setVideoProgress(0.08, `Palette: ${DE_PALETTES[paletteKey].label}`);
+    }
+
+    let faceRegions = options.faceRegions;
+    if (modelsReady) {
+      setProgressText("Detecting faces on first frame...");
+      try {
+        faceRegions = await detectFaces(frameCanvas);
+        setFaceCount(faceRegions.length);
+      } catch {
+        faceRegions = [];
+      }
+    }
+    setVideoProgress(0.1);
+
+    const faceMask = faceRegions.length > 0 ? createFaceSubjectMask(width, height, faceRegions) : null;
+
+    const outputCanvas = canvasRef.current ?? document.createElement("canvas");
+    outputCanvas.width = width;
+    outputCanvas.height = height;
+    const outputCtx = outputCanvas.getContext("2d", { willReadFrequently: true });
+    if (!outputCtx) {
+      setProcessing(false);
+      return;
+    }
+
+    const smallCanvas = document.createElement("canvas");
+    const smallScale = 0.55;
+    smallCanvas.width = Math.max(64, Math.round(width * smallScale));
+    smallCanvas.height = Math.max(64, Math.round(height * smallScale));
+    const smallCtx = smallCanvas.getContext("2d");
+    if (!smallCtx) {
+      setProcessing(false);
+      return;
+    }
+
+    const pixelCount = smallCanvas.width * smallCanvas.height;
+    const luminance = new Float32Array(pixelCount);
+    const compositeScratch = faceMask ? createCompositeScratch(width, height) : null;
+
+    // Pre-compute all constants outside the render loop
+    const detailP = options.detailPreservation;
+    const blurAmount = Math.max(0, (0.15 + options.brushSize * 0.08) * (1 - detailP * 0.6));
+    const blurFilter = blurAmount > 0.02 ? `blur(${blurAmount}px)` : "";
+    const detailBoost = Math.round(detailP * 4);
+    const levels = Math.max(9, Math.min(22, Math.round(options.posterizeLevels + 5 + detailBoost)));
+    const step = 255 / (levels - 1);
+    const satBoost = 0.82 + options.saturation * 0.22;
+    const warm = 3 + options.warmth * 7;
+    const cool = 2.4 + options.warmth * 6.4;
+    const channelStep = Math.max(5, step * 0.48);
+    const edgeThreshold = Math.max(40, (96 + (1 - options.edgeStrength) * 92) * (1 - detailP * 0.4));
+    const edgeStrengthVal = 0.1 + options.edgeStrength * 0.24 + detailP * 0.08;
+    const useLaplacian = detailP > 0.3;
+    const laplacianWeight = detailP * 0.5;
+    const softLightAlpha = (0.04 + options.textureStrength * 0.08) * (1 - detailP * 0.5);
+    const softLightBlur = Math.max(0, (0.35 + options.brushSize * 0.12) * (1 - detailP * 0.5));
+    const softLightFilter = softLightBlur > 0.02 ? `blur(${softLightBlur}px)` : "";
+
+    const renderFastPaintedFrame = () => {
+      const sw = smallCanvas.width;
+      const sh = smallCanvas.height;
+
+      smallCtx.clearRect(0, 0, sw, sh);
+      if (blurFilter) {
+        smallCtx.filter = blurFilter;
+      }
+      smallCtx.drawImage(video, 0, 0, sw, sh);
+      smallCtx.filter = "none";
+
+      const imageData = smallCtx.getImageData(0, 0, sw, sh);
+      const data = imageData.data;
+
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        if (l < 88) {
+          r -= cool * 0.12;
+          g += cool * 0.08;
+          b += cool * 0.42;
+        } else if (l > 172) {
+          r += warm * 0.58;
+          g += warm * 0.28;
+          b -= warm * 0.1;
+        } else {
+          r += warm * 0.11;
+          g += warm * 0.04;
+          b += cool * 0.02;
+        }
+
+        const qLum = Math.round(l / step) * step;
+        const lSafe = Math.max(1, l);
+        const lumRatio = qLum / lSafe;
+        r *= lumRatio;
+        g *= lumRatio;
+        b *= lumRatio;
+
+        const mid = (r + g + b) / 3;
+        r = mid + (r - mid) * satBoost;
+        g = mid + (g - mid) * satBoost;
+        b = mid + (b - mid) * satBoost;
+
+        // Gentle S-curve contrast for painterly depth.
+        // Inline S-curve (avoid function call overhead per pixel)
+        let nr = Math.max(0, Math.min(255, r)) / 255;
+        let ng = Math.max(0, Math.min(255, g)) / 255;
+        let nb = Math.max(0, Math.min(255, b)) / 255;
+        r = nr * nr * (3 - 2 * nr) * 255;
+        g = ng * ng * (3 - 2 * ng) * 255;
+        b = nb * nb * (3 - 2 * nb) * 255;
+        r = Math.round(Math.round(Math.max(0, Math.min(255, r)) / channelStep) * channelStep);
+        g = Math.round(Math.round(Math.max(0, Math.min(255, g)) / channelStep) * channelStep);
+        b = Math.round(Math.round(Math.max(0, Math.min(255, b)) / channelStep) * channelStep);
+
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        const film = Math.max(0, Math.min(1, lum / 255));
+        const mapped = (film * (2.35 - film)) / 1.35;
+        const ratio = mapped / Math.max(0.001, film);
+        r = Math.max(0, Math.min(255, r * ratio));
+        g = Math.max(0, Math.min(255, g * ratio));
+        b = Math.max(0, Math.min(255, b * ratio));
+
+        if (paletteColors && paletteMeta) {
+          const nearest = findStyledPaletteColor(r, g, b, paletteColors, paletteMeta);
+          data[i] = nearest[0];
+          data[i + 1] = nearest[1];
+          data[i + 2] = nearest[2];
+          luminance[p] = 0.299 * nearest[0] + 0.587 * nearest[1] + 0.114 * nearest[2];
+        } else {
+          data[i] = Math.round(r);
+          data[i + 1] = Math.round(g);
+          data[i + 2] = Math.round(b);
+          luminance[p] = 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+      }
+
+      for (let y = 1; y < sh - 1; y++) {
+        for (let x = 1; x < sw - 1; x++) {
+          const p = y * sw + x;
+          const l00 = luminance[p - sw - 1];
+          const l01 = luminance[p - sw];
+          const l02 = luminance[p - sw + 1];
+          const l10 = luminance[p - 1];
+          const l12 = luminance[p + 1];
+          const l20 = luminance[p + sw - 1];
+          const l21 = luminance[p + sw];
+          const l22 = luminance[p + sw + 1];
+
+          const gx = -l00 + l02 - 2 * l10 + 2 * l12 - l20 + l22;
+          const gy = -l00 - 2 * l01 - l02 + l20 + 2 * l21 + l22;
+          let e = gx * gx + gy * gy; // skip sqrt, compare squared
+
+          if (useLaplacian) {
+            const c = luminance[p];
+            const laplacian = Math.abs(l01 + l21 + l10 + l12 - 4 * c);
+            e = Math.sqrt(e) + laplacian * laplacianWeight;
+          } else {
+            e = Math.sqrt(e);
+          }
+
+          if (e <= edgeThreshold) continue;
+
+          const i = p * 4;
+          const t = Math.min(1, (e - edgeThreshold) / 240) * edgeStrengthVal;
+
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const warmEdge = r >= b;
+
+          const edgeR = warmEdge ? 40 : 34;
+          const edgeG = warmEdge ? 30 : 41;
+          const edgeB = warmEdge ? 26 : 50;
+
+          data[i] = Math.round(r * (1 - t) + edgeR * t);
+          data[i + 1] = Math.round(g * (1 - t) + edgeG * t);
+          data[i + 2] = Math.round(b * (1 - t) + edgeB * t);
+
+          if (t > 0.42 && x + 1 < sw - 1) {
+            const j = (p + 1) * 4;
+            const nt = t * 0.16;
+            data[j] = Math.round(data[j] * (1 - nt) + edgeR * nt);
+            data[j + 1] = Math.round(data[j + 1] * (1 - nt) + edgeG * nt);
+            data[j + 2] = Math.round(data[j + 2] * (1 - nt) + edgeB * nt);
+          }
+        }
+      }
+
+      smallCtx.putImageData(imageData, 0, 0);
+
+      outputCtx.clearRect(0, 0, width, height);
+      outputCtx.drawImage(video, 0, 0, width, height);
+      outputCtx.save();
+      outputCtx.globalAlpha = 0.8 + options.intensity * 0.1;
+      outputCtx.imageSmoothingEnabled = true;
+      outputCtx.drawImage(smallCanvas, 0, 0, sw, sh, 0, 0, width, height);
+      outputCtx.restore();
+
+      outputCtx.save();
+      outputCtx.globalAlpha = 0.09 + options.textureStrength * 0.12;
+      outputCtx.globalCompositeOperation = "overlay";
+      outputCtx.fillStyle = "rgba(68,82,96,0.16)";
+      outputCtx.fillRect(0, 0, width, height);
+      outputCtx.restore();
+
+      // Split-tone glaze: cool shadows + warm highlights, subtle but characteristic.
+      outputCtx.save();
+      outputCtx.globalCompositeOperation = "soft-light";
+      outputCtx.globalAlpha = 0.07 + options.intensity * 0.08;
+      outputCtx.fillStyle = "rgba(54,66,82,0.45)";
+      outputCtx.fillRect(0, 0, width, height);
+      outputCtx.restore();
+
+      outputCtx.save();
+      outputCtx.globalCompositeOperation = "overlay";
+      outputCtx.globalAlpha = 0.06 + options.warmth * 0.1;
+      outputCtx.fillStyle = "rgba(170,112,74,0.32)";
+      outputCtx.fillRect(0, 0, width, height);
+      outputCtx.restore();
+
+      if (softLightAlpha > 0.01) {
+        outputCtx.save();
+        outputCtx.globalCompositeOperation = "soft-light";
+        outputCtx.globalAlpha = softLightAlpha;
+        if (softLightFilter) {
+          outputCtx.filter = softLightFilter;
+        }
+        outputCtx.drawImage(smallCanvas, 0, 0, sw, sh, 0, 0, width, height);
+        outputCtx.filter = "none";
+        outputCtx.restore();
+      }
+
+      outputCtx.save();
+      outputCtx.globalCompositeOperation = "source-over";
+      const grad = outputCtx.createRadialGradient(
+        width * 0.5,
+        height * 0.5,
+        Math.min(width, height) * 0.25,
+        width * 0.5,
+        height * 0.5,
+        Math.max(width, height) * 0.7
+      );
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, `rgba(8,6,5,${0.16 + options.intensity * 0.14})`);
+      outputCtx.fillStyle = grad;
+      outputCtx.fillRect(0, 0, width, height);
+      outputCtx.restore();
+
+      outputCtx.save();
+      outputCtx.globalCompositeOperation = "overlay";
+      outputCtx.globalAlpha = 0.08 + options.edgeStrength * 0.16;
+      outputCtx.filter = "contrast(118%)";
+      outputCtx.drawImage(smallCanvas, 0, 0, sw, sh, 0, 0, width, height);
+      outputCtx.filter = "none";
+      outputCtx.restore();
+
+      if (faceMask) {
+        composeAbstractBackgroundWithSubject(outputCanvas, outputCanvas, faceMask, compositeScratch ?? undefined);
+      }
+    };
+
+    setProgressText("Painting first frame...");
+    renderFastPaintedFrame();
+
+    const capturableVideo = video as HTMLVideoElement & {
+      captureStream?: () => MediaStream;
+      mozCaptureStream?: () => MediaStream;
+    };
+    const sourceStream =
+      (typeof capturableVideo.captureStream === "function" ? capturableVideo.captureStream() : undefined) ??
+      (typeof capturableVideo.mozCaptureStream === "function" ? capturableVideo.mozCaptureStream() : undefined);
+
+    const sourceFps = sourceStream?.getVideoTracks?.()?.[0]?.getSettings?.().frameRate;
+    const targetFps = Math.max(24, Math.min(60, Math.round(sourceFps ?? 30)));
+    const canvasStream = outputCanvas.captureStream(targetFps);
+    const stream = new MediaStream();
+    for (const track of canvasStream.getVideoTracks()) {
+      stream.addTrack(track);
+    }
+
+    const audioTrack = sourceStream?.getAudioTracks?.()[0];
+    if (audioTrack) {
+      stream.addTrack(audioTrack);
+    }
+
+    const mimeCandidates = [
+      "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+      "video/mp4;codecs=avc1",
+      "video/mp4",
+      "video/webm;codecs=vp9",
+      "video/webm;codecs=vp8",
+      "video/webm",
+    ];
+    const mimeType = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    const targetBitrate = Math.max(8_000_000, Math.round(width * height * targetFps * 0.16));
+    const mediaRecorder = new MediaRecorder(
+      stream,
+      mimeType
+        ? { mimeType, videoBitsPerSecond: targetBitrate }
+        : { videoBitsPerSecond: targetBitrate }
+    );
+    const chunks: Blob[] = [];
+
+    const recordedBlobPromise = new Promise<Blob>((resolve) => {
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunks.push(event.data);
+      };
+      mediaRecorder.onstop = () => resolve(new Blob(chunks, { type: mimeType ?? "video/webm" }));
+    });
+
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+
+    let stopped = false;
+    let processingFrame = false;
+    let lastFrameTime = -1;
+    const frameInterval = 1 / targetFps;
+    const paintStageStart = performance.now();
+
+    const loop = () => {
+      if (stopped || video.paused || video.ended || processingFrame) return;
+
+      const nowTime = video.currentTime;
+      if (lastFrameTime >= 0 && nowTime - lastFrameTime < frameInterval) return;
+
+      processingFrame = true;
+      try {
+        renderFastPaintedFrame();
+        lastFrameTime = nowTime;
+        const timeRatio = Math.min(1, nowTime / duration);
+        const elapsedMs = performance.now() - paintStageStart;
+        const expectedMs = Math.max(1500, duration * 1000);
+        const wallRatio = Math.min(1, elapsedMs / expectedMs);
+        const ratio = Math.max(timeRatio, wallRatio * 0.92);
+        setVideoProgress(0.1 + ratio * 0.8, `Painting video... ${Math.round(ratio * 100)}%`);
+      } finally {
+        processingFrame = false;
+      }
+    };
+
+    const onTimeUpdate = () => {
+      if (stopped) return;
+      const ratio = Math.min(1, video.currentTime / duration);
+      setVideoProgress(0.1 + ratio * 0.8);
+    };
+    video.addEventListener("timeupdate", onTimeUpdate);
+
+    const rafLoop = () => {
+      if (stopped || video.ended) return;
+      loop();
+      requestAnimationFrame(() => {
+        rafLoop();
+      });
+    };
+
+    mediaRecorder.start(250);
+
+    const playbackStarted = await video.play().then(() => true).catch(() => false);
+    if (!playbackStarted || video.paused) {
+      if (mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      setProcessing(false);
+      setProgressText("Could not play video for processing.");
+      return;
+    }
+
+    rafLoop();
+
+    await new Promise<void>((resolve) => {
+      video.onended = () => resolve();
+    });
+
+    stopped = true;
+    video.removeEventListener("timeupdate", onTimeUpdate);
+    loop();
+    video.pause();
+
+    setVideoProgress(0.94, "Encoding painted video...");
+
+    if (mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
+
+    const encodingTicker = setInterval(() => {
+      setProgress((prev) => Math.min(0.99, prev + 0.003));
+    }, 120);
+
+    const paintedBlob = await recordedBlobPromise;
+    clearInterval(encodingTicker);
+    const extension = (mimeType ?? "video/webm").includes("mp4") ? "mp4" : "webm";
+    const nextVideoUrl = URL.createObjectURL(paintedBlob);
+    setProcessedVideoUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return nextVideoUrl;
+    });
+    setProcessedVideoExt(extension);
+
+    setSourceLoaded(true);
+    setProcessed(true);
+    setVideoProgress(1, audioTrack ? "Done!" : "Done! (video exported without audio track)");
+    setProcessing(false);
+  }, [drawToSourceCanvas, modelsReady, options, resolvePaletteForSource, sourceMedia]);
+
+  const processMedia = useCallback(async () => {
+    if (sourceType === "video") {
+      await processVideo();
+      return;
+    }
+    await processImage();
+  }, [processImage, processVideo, sourceType]);
 
   const downloadResult = useCallback(() => {
+    if (sourceType === "video" && processedVideoUrl) {
+      const link = document.createElement("a");
+      link.download = `painted-video.${processedVideoExt}`;
+      link.href = processedVideoUrl;
+      link.click();
+      return;
+    }
+
     if (!canvasRef.current) return;
     const link = document.createElement("a");
-    link.download = "disco-elysium-portrait.png";
+    link.download = "painted-image.png";
     link.href = canvasRef.current.toDataURL("image/png");
     link.click();
-  }, []);
+  }, [processedVideoExt, processedVideoUrl, sourceType]);
 
   const downloadComparison = useCallback(() => {
+    if (sourceType !== "image") return;
     if (!canvasRef.current || !sourceCanvasRef.current) return;
     const src = sourceCanvasRef.current;
     const dst = canvasRef.current;
@@ -207,10 +1333,26 @@ export default function Home() {
     link.download = "disco-comparison.png";
     link.href = comp.toDataURL("image/png");
     link.click();
-  }, []);
+  }, [sourceType]);
 
   const updateOption = (key: keyof FilterOptions, value: number) => {
     setOptions((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyPreset = (preset: PresetValues) => {
+    setOptions((prev) => ({ ...prev, ...preset }));
+  };
+
+  const detectPaletteNow = () => {
+    if (!sourceCanvasRef.current) return;
+    const sourceCtx = sourceCanvasRef.current.getContext("2d", { willReadFrequently: true });
+    if (!sourceCtx) return;
+
+    const sourceImageData = sourceCtx.getImageData(0, 0, sourceCanvasRef.current.width, sourceCanvasRef.current.height);
+    const detected = detectPaletteFromImageData(sourceImageData);
+    setPaletteMode("auto");
+    setActivePalette(detected);
+    setProgressText(`Detected palette: ${DE_PALETTES[detected].label}`);
   };
 
   return (
@@ -246,9 +1388,9 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 pb-16">
+      <main className={`relative z-10 max-w-6xl mx-auto px-4 md:px-6 pb-16 ${processed ? "has-mobile-download-gap" : ""}`}>
         {/* Upload area */}
-        {!sourceImage && (
+        {!sourceMedia && (
           <div className="animate-fade-in-delay-2 max-w-2xl mx-auto mt-8">
             <div
               className={`disco-dropzone p-16 text-center ${dragover ? "dragover" : ""}`}
@@ -260,7 +1402,7 @@ export default function Home() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 className="hidden"
                 onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
               />
@@ -279,13 +1421,13 @@ export default function Home() {
               </div>
 
               <p className="text-xl mb-2" style={{ color: 'var(--de-text-bright)', fontFamily: "'Playfair Display', serif" }}>
-                Drop your image here
+                Drop your image or video here
               </p>
               <p className="text-sm" style={{ color: 'var(--de-text-dim)' }}>
                 or click to browse — you can also paste from clipboard
               </p>
               <p className="text-xs mt-4" style={{ color: 'var(--de-text-dim)', opacity: 0.6 }}>
-                Supports JPG, PNG, WebP
+                Supports JPG, PNG, WebP, MP4, WebM
               </p>
             </div>
 
@@ -298,7 +1440,7 @@ export default function Home() {
         )}
 
         {/* Image loaded - workspace */}
-        {sourceImage && (
+        {sourceMedia && (
           <div className="animate-fade-in mt-6">
             {/* Controls bar */}
             <div className="disco-card p-5 mb-6">
@@ -306,22 +1448,23 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     className="disco-btn text-sm"
-                    onClick={processImage}
+                    onClick={processMedia}
                     disabled={processing}
                   >
-                    {processing ? "Painting..." : processed ? "Re-paint" : "Paint It"}
+                    {processing
+                      ? "Painting..."
+                      : processed
+                        ? "Re-paint"
+                        : sourceType === "video"
+                          ? "Paint Video"
+                          : "Paint It"}
                   </button>
 
                   <button
                     className="disco-btn-secondary text-sm"
-                    onClick={() => {
-                      setSourceImage(null);
-                      setProcessed(false);
-                      setProgress(0);
-                      setFaceCount(0);
-                    }}
+                    onClick={clearMedia}
                   >
-                    New Image
+                    New File
                   </button>
                 </div>
 
@@ -359,6 +1502,67 @@ export default function Home() {
               {/* Advanced options */}
               {showAdvanced && (
                 <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--de-surface-light)' }}>
+                  <div className="mb-5">
+                    <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--de-text-dim)', fontFamily: "'Playfair Display', serif" }}>
+                      Presets
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {STYLE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          className="disco-btn-secondary text-xs"
+                          onClick={() => applyPreset(preset.values)}
+                          type="button"
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-5">
+                    <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'var(--de-text-dim)', fontFamily: "'Playfair Display', serif" }}>
+                      Palette Detector
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={paletteMode}
+                        onChange={(e) => {
+                          const value = e.target.value as PaletteSelection;
+                          setPaletteMode(value);
+                          if (value !== "auto" && value !== "none") setActivePalette(value);
+                        }}
+                        className="text-xs"
+                        style={{
+                          background: 'var(--de-bg-warm)',
+                          color: 'var(--de-text-bright)',
+                          border: '1px solid var(--de-surface-light)',
+                          padding: '8px 10px',
+                          borderRadius: '2px',
+                          minWidth: '190px'
+                        }}
+                      >
+                        <option value="none">None (keep original color range)</option>
+                        <option value="auto">Auto detect from source</option>
+                        {(Object.keys(DE_PALETTES) as PaletteKey[]).map((key) => (
+                          <option key={key} value={key}>{DE_PALETTES[key].label}</option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        className="disco-btn-secondary text-xs"
+                        onClick={detectPaletteNow}
+                      >
+                        Detect now
+                      </button>
+
+                      <span className="text-xs" style={{ color: 'var(--de-accent-teal)' }}>
+                        Active: {paletteMode === "none" ? "None" : DE_PALETTES[activePalette].label}
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                     <SliderControl
                       label="Intensity"
@@ -383,6 +1587,12 @@ export default function Home() {
                       value={options.edgeStrength}
                       min={0} max={1} step={0.05}
                       onChange={(v) => updateOption("edgeStrength", v)}
+                    />
+                    <SliderControl
+                      label="Detail"
+                      value={options.detailPreservation}
+                      min={0} max={1} step={0.05}
+                      onChange={(v) => updateOption("detailPreservation", v)}
                     />
                     <SliderControl
                       label="Warmth"
@@ -421,56 +1631,76 @@ export default function Home() {
               {/* Original */}
               <div>
                 <h3 className="text-sm uppercase tracking-widest mb-3" style={{ color: 'var(--de-text-dim)', fontFamily: "'Playfair Display', serif" }}>
-                  Original
+                  Original {sourceType === "video" ? "Video" : "Image"}
                 </h3>
                 <div className="image-frame">
-                  <canvas
-                    ref={sourceCanvasRef}
-                    className="w-full h-auto block"
-                    style={{ display: sourceLoaded ? 'block' : 'none' }}
-                  />
-                  {/* Hidden img to load into the canvas, then swap */}
-                  <img
-                    src={sourceImage}
-                    alt="Original"
-                    className="w-full h-auto block"
-                    style={{ display: sourceLoaded ? 'none' : 'block' }}
-                    onLoad={(e) => {
-                      const img = e.currentTarget;
-                      if (sourceCanvasRef.current) {
-                        const ctx = sourceCanvasRef.current.getContext("2d")!;
-                        const maxDim = 1200;
-                        let w = img.naturalWidth, h = img.naturalHeight;
-                        if (w > maxDim || h > maxDim) {
-                          const scale = maxDim / Math.max(w, h);
-                          w = Math.round(w * scale);
-                          h = Math.round(h * scale);
-                        }
-                        sourceCanvasRef.current.width = w;
-                        sourceCanvasRef.current.height = h;
-                        ctx.drawImage(img, 0, 0, w, h);
-                        setSourceLoaded(true);
-                      }
-                    }}
-                  />
+                  {sourceType === "video" ? (
+                    <video
+                      src={sourceMedia}
+                      controls
+                      className="w-full h-auto block"
+                    />
+                  ) : (
+                    <>
+                      <canvas
+                        ref={sourceCanvasRef}
+                        className="w-full h-auto block"
+                        style={{ display: sourceLoaded ? 'block' : 'none' }}
+                      />
+                      <img
+                        src={sourceMedia}
+                        alt="Original"
+                        className="w-full h-auto block"
+                        style={{ display: sourceLoaded ? 'none' : 'block' }}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          if (sourceCanvasRef.current) {
+                            const ctx = sourceCanvasRef.current.getContext("2d")!;
+                            const maxDim = 1200;
+                            let w = img.naturalWidth;
+                            let h = img.naturalHeight;
+                            if (w > maxDim || h > maxDim) {
+                              const scale = maxDim / Math.max(w, h);
+                              w = Math.round(w * scale);
+                              h = Math.round(h * scale);
+                            }
+                            sourceCanvasRef.current.width = w;
+                            sourceCanvasRef.current.height = h;
+                            ctx.drawImage(img, 0, 0, w, h);
+                            setSourceLoaded(true);
+                          }
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Result */}
               <div>
                 <h3 className="text-sm uppercase tracking-widest mb-3" style={{ color: 'var(--de-text-dim)', fontFamily: "'Playfair Display', serif" }}>
-                  {processed ? "Disco Elysium" : "Result"}
+                  {processed ? "Disco Elysium" : sourceType === "video" ? "Video Result" : "Result"}
                 </h3>
                 <div className="image-frame" style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <canvas
-                    ref={canvasRef}
-                    className="w-full h-auto block"
-                    style={{ display: processed || processing ? 'block' : 'none' }}
-                  />
+                  {sourceType === "video" && processed && processedVideoUrl ? (
+                    <video
+                      src={processedVideoUrl}
+                      controls
+                      className="w-full h-auto block"
+                    />
+                  ) : (
+                    <canvas
+                      ref={canvasRef}
+                      className="w-full h-auto block"
+                      style={{ display: processed || processing ? 'block' : 'none' }}
+                    />
+                  )}
                   {!processed && !processing && (
                     <div className="p-12 text-center">
                       <p style={{ color: 'var(--de-text-dim)', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                        Press <strong style={{ color: 'var(--de-accent-ochre)' }}>&quot;Paint It&quot;</strong> to transform your image
+                        Press <strong style={{ color: 'var(--de-accent-ochre)' }}>
+                          {sourceType === "video" ? "Paint Video" : "Paint It"}
+                        </strong> to transform your {sourceType === "video" ? "video" : "image"}
                       </p>
                     </div>
                   )}
@@ -491,7 +1721,7 @@ export default function Home() {
             {/* Prominent download bar — visible on mobile */}
             {processed && (
               <div className="disco-download-bar mt-6">
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid ${sourceType === "video" ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"} gap-3`}>
                   <div className="disco-card p-4 flex items-center justify-center">
                     <button
                       className="disco-btn-download w-full"
@@ -500,22 +1730,24 @@ export default function Home() {
                       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
                         <path d="M10 3v10m0 0l-4-4m4 4l4-4M3 17h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      Download Painting
+                      {sourceType === "video" ? "Download Painted Video" : "Download Painting"}
                     </button>
                   </div>
-                  <div className="disco-card p-4 flex items-center justify-center">
-                    <button
-                      className="disco-btn-download-alt w-full"
-                      onClick={downloadComparison}
-                    >
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
-                        <rect x="2" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-                        <rect x="11" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-                        <path d="M5.5 17v1.5h9V17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                      Download Comparison
-                    </button>
-                  </div>
+                  {sourceType === "image" && (
+                    <div className="disco-card p-4 flex items-center justify-center">
+                      <button
+                        className="disco-btn-download-alt w-full"
+                        onClick={downloadComparison}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="inline-block mr-2 -mt-0.5">
+                          <rect x="2" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                          <rect x="11" y="3" width="7" height="14" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                          <path d="M5.5 17v1.5h9V17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                        Download Comparison
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -529,7 +1761,7 @@ export default function Home() {
             &quot;Every pixel is a brushstroke. Every brushstroke, a small death.&quot;
           </p>
           <p className="text-xs mt-2" style={{ color: 'var(--de-text-dim)', opacity: 0.3 }}>
-            No images are uploaded to any server. All processing happens in your browser.
+            No files are uploaded to any server. All processing happens in your browser.
           </p>
         </footer>
       </main>
