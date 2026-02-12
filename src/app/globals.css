@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 /* ===================================================
-   Disco Elysium Bohemian Aesthetic
+   Disco  Bohemian Aesthetic
    Painterly, moody, oil-on-canvas feel
    =================================================== */
 
@@ -334,7 +334,7 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* Disco Elysium thought cabinet style tooltip */
+/* Disco  thought cabinet style tooltip */
 .thought-bubble {
   background: linear-gradient(135deg, var(--de-bg-deep) 0%, var(--de-bg-warm) 100%);
   border: 1px solid var(--de-accent-ochre);

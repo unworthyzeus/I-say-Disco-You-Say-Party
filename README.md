@@ -1,6 +1,6 @@
 # I Say Disco, You Say Party
 
-A browser-based media filter that transforms images and videos into the distinctive oil-painted, cel-shaded art style of Disco Elysium. All processing runs entirely on the client — no files are uploaded anywhere.
+A browser-based media filter that transforms images and videos into the distinctive oil-painted, cel-shaded art style of Disco. All processing runs entirely on the client — no files are uploaded anywhere.
 
 Live at: https://i-say-disco-you-say-party.vercel.app
 
@@ -22,7 +22,7 @@ Images pass through a multi-step processing pipeline implemented in pure Canvas 
 
 6. **Cleanup pass** *(Detail < 0.5)* — A radius-1 box blur followed by a second posterize pass. This eliminates single-pixel color noise at posterization boundaries, producing cleaner flat regions.
 
-7. **Color palette remapping** — Shifts the image into a Disco Elysium-inspired palette using HSL hue-category-aware grading:
+7. **Color palette remapping** — Shifts the image into a Disco -inspired palette using HSL hue-category-aware grading:
    - Skin: warm salmon mid-tones, golden amber highlights, teal/blue-green shadows
    - Greens → sage/olive, Blues → teal shift, Yellows → gold, Purples → dusty purple
    - Shadows globally receive a cool teal shift; highlights receive a warm golden shift
@@ -40,7 +40,7 @@ A final intensity blend mixes the filtered result with the original image when i
 
 ## Palette System
 
-Five hand-crafted Disco Elysium palettes are available, each containing both warm (rust, amber, ochre) and cool (teal, blue-grey, slate) entries for color variety:
+Five hand-crafted Disco palettes are available, each containing both warm (rust, amber, ochre) and cool (teal, blue-grey, slate) entries for color variety:
 
 - **Martinaise Dusk** — Deep blue-grey shadows, rust/sienna mids, teal mid-tones, pale amber highlights
 - **Whirling-in-Rags** — Cool grey-blues, olive/brown mids, dusty rose, warm ivory highlights
@@ -117,7 +117,7 @@ All parameters are adjustable via sliders:
 | Canvas Texture | 0 – 1 | 0.12 | Canvas weave overlay strength |
 | Detail | 0 – 1 | 0.10 | Fine detail preservation (0 = flat cel, 1 = detailed) |
 
-A palette dropdown selects a Disco Elysium color palette. A "Reset to defaults" link restores all values.
+A palette dropdown selects a Disco  color palette. A "Reset to defaults" link restores all values.
 
 ---
 
@@ -159,7 +159,7 @@ Icons are provided at 192×192 and 512×512 (PNG, maskable).
 
 ## UI Theme
 
-Custom dark theme inspired by Disco Elysium's bohemian aesthetic:
+Custom dark theme inspired by Disco bohemian aesthetic:
 
 - Dark brown/sepia background tones
 - Playfair Display for headings, EB Garamond for body text

@@ -1,7 +1,7 @@
 /**
- * Disco Elysium Art Style Filter
+ * Disco Art Style Filter
  * 
- * Replicates the distinctive painterly oil-painting style of Disco Elysium:
+ * Replicates the distinctive painterly oil-painting style of Disco:
  * - Heavy impasto brushstrokes (Kuwahara-like oil paint filter)
  * - Posterization / cel-shading (quantized color levels)
  * - Muted, desaturated palette with warm amber/ochre accents
@@ -268,10 +268,10 @@ function sobelEdges(src: ImageData, width: number, height: number): Float32Array
 }
 
 // ============================================================
-// Step 4: Color Palette Remapping (Disco Elysium tones)
+// Step 4: Color Palette Remapping (Disco tones)
 // ============================================================
 
-// Hue categories for Disco Elysium color treatment
+// Hue categories for Disco color treatment
 const enum HueCategory {
   SKIN_WARM,    // Skin tones, warm oranges/reds (hue 0-0.11 or 0.93-1.0)
   YELLOW_GOLD,  // Yellows, golds (0.11-0.17)
@@ -570,7 +570,7 @@ function applyEdges(
   const dst = new ImageData(new Uint8ClampedArray(src.data), width, height);
   const d = dst.data;
 
-  // Disco Elysium uses dark colored outlines that vary:
+  // Disco uses dark colored outlines that vary:
   // - warm areas get dark brown/sienna outlines
   // - cool areas get dark teal outlines
   for (let i = 0; i < edges.length; i++) {
@@ -701,7 +701,7 @@ function simulateBrushstrokes(
 }
 
 // ============================================================
-// Step 8: Vignette (Disco Elysium has moody dark edges)
+// Step 8: Vignette (Disco has moody dark edges)
 // ============================================================
 
 function applyVignette(src: ImageData, width: number, height: number, strength: number): ImageData {
@@ -982,7 +982,7 @@ function multiScaleEdges(
 
 export type ProgressCallback = (step: string, progress: number) => void;
 
-export async function applyDiscoElysiumFilter(
+export async function applyDiscoFilter(
   canvas: HTMLCanvasElement,
   sourceImage: HTMLImageElement | HTMLCanvasElement,
   options: FilterOptions = DEFAULT_OPTIONS,
@@ -1071,8 +1071,8 @@ export async function applyDiscoElysiumFilter(
     imageData = posterize(imageData, effectiveLevels, scaledFaces);
   }
 
-  // Pipeline step 5: Color remapping to Disco Elysium palette
-  onProgress?.('Remapping to Disco Elysium palette...', 0.60);
+  // Pipeline step 5: Color remapping to Disco palette
+  onProgress?.('Remapping to Disco palette...', 0.60);
   await yieldToMain();
   imageData = remapColors(imageData, options.warmth, options.saturation, scaledFaces);
 

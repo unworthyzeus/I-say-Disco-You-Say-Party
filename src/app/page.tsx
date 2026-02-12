@@ -2,13 +2,13 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  applyDiscoElysiumFilter,
+  applyDiscoFilter,
   FilterOptions,
   DEFAULT_OPTIONS,
 } from "@/lib/disco-filter";
 import { loadFaceDetectionModels, detectFaces, isModelLoaded } from "@/lib/face-detection";
 
-// Quotes from Disco Elysium for flavor
+// Quotes from for flavor
 const QUOTES = [
   "The world is like a puzzle — every piece covered in oil paint.",
   "In the pale, all things dissolve into impressions.",
@@ -218,7 +218,7 @@ const PALETTE_META: Record<PaletteKey, Array<{ lum: number; warmth: number }>> =
 
 // Luminance-aware palette matching.
 // Matches brightness first, then biases shadows toward cool palette entries
-// and highlights toward warm ones — the core Disco Elysium color split.
+// and highlights toward warm ones — the core Disco color split.
 const findStyledPaletteColor = (
   r: number,
   g: number,
@@ -719,7 +719,7 @@ export default function Home() {
       }
 
       try {
-        await applyDiscoElysiumFilter(
+        await applyDiscoFilter(
           canvasRef.current!,
           img,
           { ...options, faceRegions },
@@ -1679,7 +1679,7 @@ export default function Home() {
               {/* Result */}
               <div>
                 <h3 className="text-sm uppercase tracking-widest mb-3" style={{ color: 'var(--de-text-dim)', fontFamily: "'Playfair Display', serif" }}>
-                  {processed ? "Disco Elysium" : sourceType === "video" ? "Video Result" : "Result"}
+                  {processed ? "Disco" : sourceType === "video" ? "Video Result" : "Result"}
                 </h3>
                 <div className="image-frame" style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {sourceType === "video" && processed && processedVideoUrl ? (

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "I Say Disco, You Say Party — Painterly Image Filter",
-  description: "Transform any image into the oil-painted, cel-shaded aesthetic of Disco Elysium. Face detection, brushstroke simulation, and moody color grading.",
+  description: "Transform any image into the oil-painted, cel-shaded aesthetic. Face detection, brushstroke simulation, and moody color grading.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "I Say Disco, You Say Party",
-    description: "Turn your photos into Disco Elysium paintings",
+    description: "Turn your photos into oil-painted, cel-shaded images",
     type: "website",
   },
 };

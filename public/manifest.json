@@ -1,7 +1,7 @@
 {
   "name": "I Say Disco, You Say Party",
   "short_name": "Disco Party",
-  "description": "Transform any image into the oil-painted aesthetic of Disco Elysium",
+  "description": "Transform any image into the oil-painted aesthetic of videogame",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1611",
